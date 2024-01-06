@@ -1,0 +1,5 @@
+pyTelegramBotAPI
+openpyxl
+Telethon
+dublib
+pandas

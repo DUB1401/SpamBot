@@ -1,0 +1,12 @@
+# Visual Studio project files.
+SpamBot.pyproj
+SpamBot.sln
+.vs
+
+# Data.
+Data/Sessions
+Targets.xlsx
+Attachments
+
+# Python cache.
+__pycache__
