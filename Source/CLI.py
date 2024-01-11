@@ -50,13 +50,18 @@ class CLI:
 		Cls()
 		# Вывод в консоль: заголовок интерпретатора.
 		print(f"SpamBot {self.__Version}\nGitHub: https://github.com/DUB1401/SpamBot\nCopyright © DUB1401. 2022-" + str(datetime.datetime.now().year) + ".")
+		
+	# Проверяет наличие мута у аккаунта.
+	def __check(self, Command: list[str]):
+		# Проверка наличия мута у аккаунта.
+		self.__Spammer.checkAccountMute(int(Command[1]), Logging = False)
 
 	# Деактивация аккаунта.
 	def __disable(self, Command: list[str]):
 		# Если указана звёздочка, выбрать все аккаунты, иначе конвертировать ID в целое число.
 		Command[1] = None if Command[1] == "*" else int(Command[1])
 		# Попытка активации аккаунта.
-		Result = self.__Spammer.setAccountStatus(Command[1], False)
+		Result = self.__Spammer.updateAccount(Command[1], "active", False)
 		# Если деактивация не выполнена, вывести ошибку.
 		if Result == False: StyledPrinter(f"[ERROR] Unable to find account with ID {Command[1]}.", TextColor = Styles.Color.Red)
 	
@@ -65,7 +70,7 @@ class CLI:
 		# Если указана звёздочка, выбрать все аккаунты, иначе конвертировать ID в целое число.
 		Command[1] = None if Command[1] == "*" else int(Command[1])
 		# Попытка активации аккаунта.
-		Result = self.__Spammer.setAccountStatus(Command[1], True)
+		Result = self.__Spammer.updateAccount(Command[1], "active", True)
 		# Если активация не выполнена, вывести ошибку.
 		if Result == False: StyledPrinter(f"[ERROR] Unable to find account with ID {Command[1]}.", TextColor = Styles.Color.Red)
 
@@ -148,13 +153,12 @@ class CLI:
 	# Отправка сообщения.
 	def __send(self, Command: list[str]):
 		# Попытка отправки сообщения.
-		ExecutionCode = self.__Spammer.send(Command[1].replace("https://t.me/", ""))
-		
-		# Проверка кодов исполнения.
-		match ExecutionCode:
+		self.__Spammer.send(Command[1].replace("https://t.me/", ""))
 			
-			# Нет активных аккаунтов.
-			case 1: StyledPrinter("[ERROR] There are no active accounts.", TextColor = Styles.Color.Red)
+	# Запуск рассылки.
+	def __start(self):
+		# Запуск рассылки.
+		self.__Spammer.startMailing()
 
 	# Удаляет данные аккаунта.
 	def __unregister(self, Command: list[str]):
@@ -191,6 +195,9 @@ class CLI:
 				# Очистка консоли.
 				case "cls": self.__cls()
 				
+				# Проверяет наличие мута у аккаунта.
+				case "check": self.__check(Command)
+				
 				# Деактивация аккаунта.
 				case "disable": self.__disable(Command)
 				
@@ -212,6 +219,9 @@ class CLI:
 				# Отправка сообщения.
 				case "send": self.__send(Command)
 				
+				# Запуск рассылки.
+				case "start": self.__start()
+				
 				# Удаляет данные аккаунта.
 				case "unregister": self.__unregister(Command)
 				
@@ -221,7 +231,7 @@ class CLI:
 				# Команда не распознана.
 				case _: print("Unknown command. Type \"help\" for more information.")
 
-		except Exception as ExceptionData:
+		except FileExistsError as ExceptionData:
 			# Вывод в консоль: ошибка во время выполнения.
 			StyledPrinter("Runtime error:", TextColor = Styles.Color.Red)
 			# Вывод в консоль: исключение.
@@ -234,9 +244,7 @@ class CLI:
 	
 		# Постоянно.
 		while True:
-			# Вывод указателя ввода.
-			print("> ", end = "")
 			# Запрос ввода команды.
-			Input = input()
+			Input = input("> ")
 			# Обработка команды.
 			self.processCommand(Input)		

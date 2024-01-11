@@ -1,4 +1,4 @@
-from dublib.Methods import Cls, CheckPythonMinimalVersion, MakeRootDirectories, ReadJSON, RemoveFolderContent
+from dublib.Methods import CheckPythonMinimalVersion, MakeRootDirectories, ReadJSON, RemoveFolderContent
 from dublib.StyledPrinter import *
 from dublib.Terminalyzer import *
 from Source.BotManager import *
@@ -39,6 +39,10 @@ CommandsList = list()
 COM_run = Command("run")
 CommandsList.append(COM_run)
 
+# Создание команды: start.
+COM_start = Command("start")
+CommandsList.append(COM_start)
+
 # Инициализация обработчика консольных аргументов.
 CAC = Terminalyzer()
 # Получение информации о проверке команд. 
@@ -48,8 +52,13 @@ CommandDataStruct = CAC.checkCommands(CommandsList)
 # >>>>> ОБРАБОТКА КОММАНД <<<<< #
 #==========================================================================================#
 
-# Обработка команды: update.
-if CommandDataStruct != None and "run" == CommandDataStruct.Name:
+# Обработка команды: start.
+if CommandDataStruct != None and "start" == CommandDataStruct.Name:
+	# Запуск обработчика консольных команд.
+	CLI(Settings, VERSION).processCommand("start")
+	
+# Обработка команды: run.
+elif CommandDataStruct != None and "run" == CommandDataStruct.Name:
 	# Запуск обработчика консольных команд.
 	CLI(Settings, VERSION).runLoop()
 	

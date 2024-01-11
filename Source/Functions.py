@@ -1,6 +1,7 @@
 ﻿from dublib.Methods import WriteJSON
 from telebot import types
 
+import datetime
 import requests
 import telebot
 import pandas
@@ -23,6 +24,15 @@ def BuildAdminMenu(BotProcessor: any) -> types.ReplyKeyboardMarkup:
 	
 	return Menu
 
+# Сравнивает даты.
+def CompareDates(FirstDate: datetime.datetime, SecondDate: datetime.datetime) -> bool:
+	# Состояние: прошла ли вторая дата.
+	InPast = False
+	# Если вторая дата моложе первой, переключить состояние.
+	if FirstDate.timestamp() > SecondDate.timestamp(): InPast = True
+	
+	return InPast
+
 # Преобразует файл Excel в JSON.
 def ConvertExcelToJSON() -> bool:
 	# Состояние: успешно ли преобразование.
@@ -39,11 +49,13 @@ def ConvertExcelToJSON() -> bool:
 			# Чтение файла.
 			Excel = pandas.read_excel("Data/Targets.xlsx")
 			# Получение данных.
-			Data = pandas.DataFrame(Excel, columns = ["Username", "User ID"])
+			Data = pandas.DataFrame(Excel, columns = ["Username", "User ID", "Номер телефона:"])
 			# Список ников.
 			Usernames = Data["Username"].tolist()
 			# ID пользователей.
 			UsersID = Data["User ID"].tolist()
+			# Номера телефонов.
+			Phones = Data["Номер телефона:"].tolist()
 				
 			# Для каждого ника.
 			for Index in range(0, len(Usernames)):
@@ -53,10 +65,11 @@ def ConvertExcelToJSON() -> bool:
 				Bufer = {
 					"id": UsersID[Index],
 					"username": Usernames[Index],
+					"phone-number": "+" + str(int(Phones[Index])) if str(Phones[Index]) != "nan" else None,
 					"active": True
 				}
-				# Запись буфера.
-				Targets["targets"].append(Bufer)
+				# Если данные могут быть использованы для рассылки, записать их.
+				if Bufer["username"] != None or Bufer["phone-number"] != None: Targets["targets"].append(Bufer)
 					
 			# Сохранение файла целей.
 			WriteJSON("Data/Targets.json", Targets)
