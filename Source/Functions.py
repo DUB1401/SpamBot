@@ -66,6 +66,7 @@ def ConvertExcelToJSON() -> bool:
 					"id": UsersID[Index],
 					"username": Usernames[Index],
 					"phone-number": "+" + str(int(Phones[Index])) if str(Phones[Index]) != "nan" else None,
+					"mailed": False,
 					"active": True
 				}
 				# Если данные могут быть использованы для рассылки, записать их.

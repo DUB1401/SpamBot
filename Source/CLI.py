@@ -14,6 +14,7 @@ HELP_COMMANDS = [
 	"list".ljust(16) + " Types list of registered accounts.",	
 	"register".ljust(16) + " Register new Telegram account in app.",	
 	"send".ljust(16) + " Sends message to @username or by user link.",
+	"start".ljust(16) + " Starting spam mailing.",
 	"unregister".ljust(16) + " Logout and remove account data."
 ]
 
@@ -29,9 +30,9 @@ HELP_ARGUMENTS = {
 		"COMMAND": "Name of command, in which you need help."
 	},
 	"register": {
+		"PHONE_NUMBER*": "Mobile phone number in the international format.",
 		"API_ID*": "ID of API for account.",
-		"API_HASH*": "Hash of API for account.",
-		"PHONE_NUMBER*": "Mobile phone number in the international format."
+		"API_HASH*": "Hash of API for account."
 	},
 	"send": {
 		"USERNAME*": "Name or link of Telegram user."
@@ -120,6 +121,30 @@ class CLI:
 			# Вывод в консоль: описание.
 			print("ID:", Account["id"])
 			print("Phone number:", Account["phone-number"])
+			print("Mute: ", end = "")
+			
+			# Если аккаунт имеет мут.
+			if Account["mute"] == True: 
+				# Вывод статуса мута.
+				StyledPrinter("True", TextColor = Styles.Color.Red)
+				
+			else:
+				# Вывод статуса мута.
+				StyledPrinter("False", TextColor = Styles.Color.Green)
+				
+			# Вывод в консоль: есть ли бан.
+			print("Ban: ", end = "")
+			
+			# Если аккаунт имеет мут.
+			if Account["ban"] == True: 
+				# Вывод статуса мута.
+				StyledPrinter("True", TextColor = Styles.Color.Red)
+				
+			else:
+				# Вывод статуса мута.
+				StyledPrinter("False", TextColor = Styles.Color.Green)
+
+			# Вывод в консоль: активность аккаунта.
 			print("Active: ", end = "")
 			
 			# Если аккаунт активен.
@@ -130,7 +155,7 @@ class CLI:
 			else:
 				# Вывод статуса.
 				StyledPrinter("False", TextColor = Styles.Color.Red)
-				
+			
 			# Вывод в консоль: разделитель.
 			print("==============================")
 			
@@ -231,9 +256,9 @@ class CLI:
 				# Команда не распознана.
 				case _: print("Unknown command. Type \"help\" for more information.")
 
-		except FileExistsError as ExceptionData:
+		except Exception as ExceptionData:
 			# Вывод в консоль: ошибка во время выполнения.
-			StyledPrinter("Runtime error:", TextColor = Styles.Color.Red)
+			StyledPrinter("Runtime error:", TextColor = Styles.Color.Red, Newline = False)
 			# Вывод в консоль: исключение.
 			print(ExceptionData)
 			

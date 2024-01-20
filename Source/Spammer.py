@@ -1,12 +1,15 @@
+from telethon.errors import AuthKeyUnregisteredError, FloodWaitError, PeerFloodError, UserDeactivatedBanError, UserDeactivatedError
 from dublib.Methods import ReadJSON, RemoveFolderContent, WriteJSON
+from telethon.tl.functions.contacts import ImportContactsRequest
 from dublib.StyledPrinter import StyledPrinter, Styles
+from telethon.types import InputPhoneContact
 from Source.Functions import CompareDates
 from telethon.sync import TelegramClient
 from time import sleep
 
 import dateparser
 import datetime
-import telethon
+import requests
 import random
 import shutil
 import os
@@ -72,7 +75,7 @@ class Spammer:
 		for Account in self.__Accounts["accounts"]: 
 			
 			# Если нужно получить только активные аккаунты.
-			if OnlyActive == True and Account["active"] == True and Account["mute"] == False:
+			if OnlyActive == True and Account["active"] == True and Account["mute"] == False and Account["ban"] == False:
 				# Записать ID.
 				AccountsID.append(Account["id"])
 				
@@ -82,6 +85,22 @@ class Spammer:
 				AccountsID.append(Account["id"])
 		
 		return AccountsID
+	
+	# Возвращает список вложений.
+	def __GetAttachments(self) -> list[str] | None:
+		# Список файлов.
+		Files = os.listdir("Attachments")
+		
+		# Если файлов нет.
+		if len(Files) == 0:
+			# Обнуление файлов.
+			Files = None
+			
+		else:
+			# Для каждого файла прибавить путь.
+			for Index in range(0, len(Files)): Files[Index] = "Attachments/" + Files[Index]
+			
+		return Files
 	
 	# Возвращает дату из комментария аккаунта.
 	def __GetDate(self, AccountID: int) -> datetime.datetime | None:
@@ -108,7 +127,7 @@ class Spammer:
 		# Получение описания аккаунта.
 		AccountData = self.__GetAccountByID(AccountID)
 		# Создание клиента и подключение.
-		self.__CurrentClient = TelegramClient("SpamBot", AccountData["api-id"], AccountData["api-hash"])
+		self.__CurrentClient = TelegramClient("SpamBot", AccountData["api-id"], AccountData["api-hash"], system_version = "4.16.30-vxCUSTOM")
 		self.__CurrentClient.connect()
 
 	# Сохраняет файл аккаунтов.
@@ -133,6 +152,21 @@ class Spammer:
 		# Копирование новой сессии.
 		shutil.copyfile("SpamBot.session", f"Data/Sessions/{AccountID}/SpamBot.session")
 		if os.path.exists("SpamBot.session-journal"): shutil.copyfile("SpamBot.session-journal", f"Data/Sessions/{AccountID}/SpamBot.session-journal")
+		
+	# Отправляет запрос на разбан.
+	def __SendUnbanRequest(self, AccountID: int):
+		# Данные аккаунта.
+		Account = self.__GetAccountByID(AccountID)
+		# Premium-модификатор.
+		Premium = "+Premium" if Account["premium"] == True else ""
+		# Адрес почты для ответного письма.
+		Email = self.__Settings["send-auto-unban-requests"].replace("@", "%40")
+		# Номер телефона.
+		Phone = Account["phone-number"].replace("+", "%2B")
+		# Данные запроса.
+		Data = f"message=My{Premium}+account+has+been+deleted+or+deactivated.+How+can+I+restore+it%3F&email={Email}&phone={Phone}&setln=en"
+		# Запрос разбана.
+		requests.post(f"https://telegram.org/support", data = Data)
 		
 	# Выгружает текущий аккаунт из работы.
 	def __UnloadAccount(self, AccountID: int):
@@ -231,7 +265,7 @@ class Spammer:
 		return MuteStatus
 
 	# Регистрирует новый аккаунт.
-	def register(self, ApiID: int | str, ApiHash: str, PhoneNumber: str, Code: str | None = None) -> bool:
+	def register(self, PhoneNumber: str, ApiID: int | str, ApiHash: str, Code: str | None = None) -> bool:
 		# Состояние: авторизован ли пользователь.
 		IsAuth = False
 		
@@ -242,7 +276,7 @@ class Spammer:
 			if os.path.exists("SpamBot.session-journal"): os.remove("SpamBot.session-journal")
 			
 			# Создание клиента и подключение.
-			self.__Client = TelegramClient("SpamBot", int(ApiID), ApiHash)
+			self.__Client = TelegramClient("SpamBot", int(ApiID), ApiHash, system_version = "4.16.30-vxCUSTOM")
 			self.__Client.connect()
 			
 		# Авторизация.
@@ -268,6 +302,7 @@ class Spammer:
 				"api-id": ApiID,
 				"api-hash": ApiHash,
 				"mute": False,
+				"ban": False,
 				"active": True,
 				"comment": None
 			}
@@ -290,7 +325,7 @@ class Spammer:
 		CurrentAccountID = None
 				
 		# Пока код выполнения не в диапазоне.
-		while ExecutionCode not in [0, 1]:
+		while ExecutionCode not in [0, 1, 3]:
 			
 			# Если включено автоматическое снятие мута.
 			if Unmute == True:
@@ -309,9 +344,24 @@ class Spammer:
 				self.__InitializeAccount(CurrentAccountID)
 				# Если ник не начинается с @, добавить.
 				if Username.startswith("@") == False and Username.startswith("+") == False: Username = "@" + Username
+				
+				# Если передан номер телефона.
+				if Username.startswith("+") == True:
+					# Создание контакта.
+					Contact = InputPhoneContact(client_id = 0, phone = Username, first_name="SpamTarget", last_name = Username)
+					
+					try:
+						# Добавление контакта по номеру телефона.
+						self.__CurrentClient(ImportContactsRequest([Contact]))
+						
+					except Exception as ExceptionData:
+						# Вывод в консоль: исключение.
+						StyledPrinter("[DEBUG] " + str(ExceptionData))
+
 				# Отправка сообщения.
 				self.__CurrentClient.send_message(
 					entity = Username,
+					file = self.__GetAttachments(),
 					message = self.__Settings["message"] if Text == None else Text,
 					parse_mode = "HTML" 
 				)
@@ -326,23 +376,51 @@ class Spammer:
 				# Вывод в консоль: не осталось рабочих аккаунтов.
 				if Logging: StyledPrinter(f"[ERROR] There are no working accounts left. Stopped.", TextColor = Styles.Color.Red)
 			
-			except telethon.errors.rpcerrorlist.PeerFloodError:
+			except PeerFloodError:
 				# Изменение кода исполнения.
 				ExecutionCode = 2
 				# Вывод в консоль: неспецифическая ошибка.
 				if Logging: StyledPrinter(f"[ERROR] Account {CurrentAccountID} muted.", TextColor = Styles.Color.Red)
 				# Проверка мута аккаунта.
 				self.updateAccount(CurrentAccountID, "mute", True)
+				
+			except ValueError as ExceptionData:
+				# Изменение кода исполнения.
+				ExecutionCode = 3
+				# Вывод в консоль: неспецифическая ошибка.
+				if Logging: StyledPrinter(f"[WARNING] Cann't send message: {Username}. Marked as incative.", TextColor = Styles.Color.Yellow)
+				
+			except FloodWaitError as ExceptionData:
+				# Изменение кода исполнения.
+				ExecutionCode = 4
+				# Количество секунд ожидания.
+				Seconds = int(''.join(filter(str.isdigit, str(ExceptionData))))
+				# Вывод в консоль: выжидание запрошенного Telegram интервала.
+				if Logging: StyledPrinter(f"[WARNING] Waiting for {Seconds} seconds...", TextColor = Styles.Color.Yellow)
+				# Выжидание интервала.
+				sleep(Seconds)
+				
+			except AuthKeyUnregisteredError as ExceptionData:
+				# Изменение кода исполнения.
+				ExecutionCode = 5
+				# Вывод в консоль: выжидание запрошенного Telegram интервала.
+				if Logging: StyledPrinter(f"[ERROR] Account {CurrentAccountID} requested authorization.", TextColor = Styles.Color.Red)
+				# Блокировка аккаунта.
+				self.updateAccount(CurrentAccountID, "active", False)
+				
+			except [UserDeactivatedBanError, UserDeactivatedError] as ExceptionData:
+				# Изменение кода исполнения.
+				ExecutionCode = 6
+				# Вывод в консоль: выжидание запрошенного Telegram интервала.
+				if Logging: StyledPrinter(f"[ERROR] Account {CurrentAccountID} banned.", TextColor = Styles.Color.Red)
+				# Блокировка аккаунта.
+				self.updateAccount(CurrentAccountID, "ban", True)
 		
 			except Exception as ExceptionData:
 				# Вывод в консоль: исключение.
 				print(ExceptionData)
 				# Блокировка аккаунта.
 				self.updateAccount(CurrentAccountID, "active", False)
-				# Вывод в консоль: неспецифическая ошибка.
-				if Logging: StyledPrinter(f"[WARNING] User: {Username}. Unable to send message.", TextColor = Styles.Color.Yellow)
-				# Остановка цикла.
-				break
 			
 			# Выгрузка аккаунта.
 			if ExecutionCode != 1 and Unload == True: self.__UnloadAccount(CurrentAccountID)
@@ -353,31 +431,45 @@ class Spammer:
 	def startMailing(self, Logging: bool = True):
 		# Чтение JSON целей.
 		Targets = ReadJSON("Data/Targets.json")
-		# Список ников пользователей.
-		Usernames = list()
 		
 		# Для каждой цели.
-		for Target in Targets["targets"]:
-			
-			# Если указан ник.
-			if Target["active"] == True:
+		for Index in range(0, len(Targets["targets"])):
+			# Цель для отправки.
+			User = None
 				
-				# Если для цели определён ник.
-				if Target["username"] != None:
-					# Запись ника.
-					Usernames.append(Target["username"])
+			# Если для цели определён ник.
+			if Targets["targets"][Index]["username"] != None:
+				# Запись ника.
+				User = Targets["targets"][Index]["username"]
 					
-				# Если для цели определён номер телефона.
-				elif Target["phone-number"] != None:
-					# Запись номера телефона.
-					Usernames.append(Target["username"])
-				
-		# Для каждого ника.
-		for User in Usernames:
-			# Попытка отправки сообщения.
-			self.send(User, Logging)
-			# Выжидание интервала.
-			sleep(self.__Settings["delay"])
+			# Если для цели определён номер телефона.
+			elif Targets["targets"][Index]["phone-number"] != None:
+				# Запись ника.
+				User = Targets["targets"][Index]["phone-number"]
+					
+			# Если пользователю можно отправить сообщение и это не было сделано ранее.
+			if User != None and Targets["targets"][Index]["mailed"] == False and Targets["targets"][Index]["active"] == True:
+				# Попытка отправки сообщения.
+				Result = self.send(User, Logging = Logging)
+				# Обработка статусов выполнения.
+				if Result == 0: Targets["targets"][Index]["mailed"] = True
+				if Result == 1: break
+				if Result == 3: Targets["targets"][Index]["active"] = False
+				WriteJSON("Data/Targets.json", Targets)
+				# Выжидание интервала.
+				sleep(self.__Settings["delay"])
+					
+			# Если пользователю уже было отправлено сообщение ранее и включено логгирование.
+			elif Targets["targets"][Index]["mailed"] == True and Logging:
+				# Если используется ник, добавить символ собаки.
+				if User.startswith("+") == False and User.startswith("@") == False: User = "@" + User
+				# Вывод в консоль: успешная отправка.
+				print(f"[INFO] User: {User}. Marked as mailed. Skipped.")
+					
+			# Если пользователю уже было отправлено сообщение ранее и включено логгирование.
+			elif Targets["targets"][Index]["active"] == False and Logging:
+				# Вывод в консоль: пользователь неактивен.
+				print(f"[INFO] User: {User}. Inactive.")
 	
 	# Удаляет данные аккаунта.
 	def unregister(self, AccountID: int) -> bool:
