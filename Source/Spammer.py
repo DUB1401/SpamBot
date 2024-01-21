@@ -415,6 +415,13 @@ class Spammer:
 				if Logging: StyledPrinter(f"[ERROR] Account {CurrentAccountID} banned.", TextColor = Styles.Color.Red)
 				# Блокировка аккаунта.
 				self.updateAccount(CurrentAccountID, "ban", True)
+				
+				# Если указана почта для отправки запроса о снятии бана.
+				if self.__Settings["send-auto-unban-requests"] not in ["", None]:
+					# Отправка запроса на снятие бана.
+					self.__SendUnbanRequest(CurrentAccountID)
+					# Вывод в консоль: запрос на снятие бана отправлен.
+					if Logging: print("[INFO] Unban request sended.")
 		
 			except Exception as ExceptionData:
 				# Вывод в консоль: исключение.
