@@ -1,11 +1,7 @@
-from apscheduler.schedulers.background import BackgroundScheduler
 from dublib.Methods import ReadJSON, RemoveHTML, WriteJSON
-from Source.Functions import EscapeCharacters
 from telebot import types
-from time import sleep
 
 import telebot
-import random
 import enum
 import os
 
@@ -22,6 +18,8 @@ class ExpectedMessageTypes(enum.Enum):
 	Image = "image"
 	# Список целей рассылки.
 	Targets = "targets"
+	# Консольная команда.
+	Terminal = "terminal"
 
 # Менеджер данных бота.
 class BotManager:
@@ -36,8 +34,6 @@ class BotManager:
 		
 		#---> Генерация динамических свойств.
 		#==========================================================================================#
-		# Планировщик задач.
-		self.__Planner = BackgroundScheduler()
 		# Текущий тип ожидаемого сообщения.
 		self.__ExpectedType = ExpectedMessageTypes.Undefined
 		# Словарь определений пользователь.
@@ -50,7 +46,7 @@ class BotManager:
 	# Переключает сбор изображений.
 	def collect(self, Status: bool):
 		# Переключение сбора изображений.
-		self.__Settings["collect-media"] = Status
+		self.__Settings["statuses"]["collect-media"] = Status
 		# Сохранение настроек.
 		self.__SaveSettings()
 		
@@ -171,3 +167,17 @@ class BotManager:
 	# Задаёт тип ожидаемого сообщения.
 	def setExpectedType(self, Type: ExpectedMessageTypes):
 		self.__ExpectedType = Type
+		
+	# Переключает использование терминала.
+	def useTerminal(self, Status: bool):
+		# Переключение сбора изображений.
+		self.__Settings["statuses"]["terminal"] = Status
+		# Сохранение настроек.
+		self.__SaveSettings()
+		
+	# Переключает ожидание файла аудитории.
+	def waitAuditorium(self, Status: bool):
+		# Переключение сбора изображений.
+		self.__Settings["statuses"]["targeting"] = Status
+		# Сохранение настроек.
+		self.__SaveSettings()

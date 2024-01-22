@@ -238,7 +238,7 @@ class CLI:
 		if Result == False: StyledPrinter(f"[ERROR] Unable to find account with ID {Command[1]}.", TextColor = Styles.Color.Red)
 			
 	# Конструктор.
-	def __init__(self, Settings: dict, Version: str):
+	def __init__(self, Settings: dict, Version: str, Clear: bool = True):
 		
 		#---> Генерация динамических свойств.
 		#==========================================================================================#
@@ -250,7 +250,7 @@ class CLI:
 		self.__Version = Version
 		
 		# Очистка консоли.
-		self.__cls()
+		if Clear == True: self.__cls()
 	
 	# Обрабатывает команду.
 	def processCommand(self, Command: str):

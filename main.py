@@ -1,12 +1,14 @@
-from dublib.Methods import CheckPythonMinimalVersion, MakeRootDirectories, ReadJSON, RemoveFolderContent
+from dublib.Methods import CheckPythonMinimalVersion, MakeRootDirectories, ReadJSON, RemoveFolderContent, RemoveRecurringSubstrings, RemoveRegexSubstring
 from dublib.StyledPrinter import *
 from dublib.Terminalyzer import *
 from Source.BotManager import *
 from Source.Functions import *
 from Source.CLI import CLI
 from telebot import types
-
+from io import StringIO
+				
 import telebot
+import sys
 
 #==========================================================================================#
 # >>>>> ИНИЦИАЛИЗАЦИЯ СКРИПТА <<<<< #
@@ -35,13 +37,14 @@ if type(Settings["token"]) != str or Settings["token"].strip() == "": raise Exce
 # Список описаний обрабатываемых команд.
 CommandsList = list()
 
+# Создание команды: execute.
+COM_execute = Command("execute")
+COM_execute.addArgument(ArgumentType.All, Important = True)
+CommandsList.append(COM_execute)
+
 # Создание команды: run.
 COM_run = Command("run")
 CommandsList.append(COM_run)
-
-# Создание команды: start.
-COM_start = Command("start")
-CommandsList.append(COM_start)
 
 # Инициализация обработчика консольных аргументов.
 CAC = Terminalyzer()
@@ -52,10 +55,10 @@ CommandDataStruct = CAC.checkCommands(CommandsList)
 # >>>>> ОБРАБОТКА КОММАНД <<<<< #
 #==========================================================================================#
 
-# Обработка команды: start.
-if CommandDataStruct != None and "start" == CommandDataStruct.Name:
+# Обработка команды: execute.
+if CommandDataStruct != None and "execute" == CommandDataStruct.Name:
 	# Запуск обработчика консольных команд.
-	CLI(Settings, VERSION).processCommand("start")
+	CLI(Settings, VERSION, False).processCommand(CommandDataStruct.Arguments[0].replace("+", " "))
 	
 # Обработка команды: run.
 elif CommandDataStruct != None and "run" == CommandDataStruct.Name:
@@ -69,6 +72,10 @@ else:
 	Bot = telebot.TeleBot(Settings["token"])
 	# Менеджер данных бота.
 	BotProcessor = BotManager(Settings, Bot)
+	# Установка ожидаемого типа значения.
+	if Settings["statuses"]["collect-media"] == True: BotProcessor.setExpectedType(ExpectedMessageTypes.Image)
+	if Settings["statuses"]["targeting"] == True: BotProcessor.setExpectedType(ExpectedMessageTypes.Targets)
+	if Settings["statuses"]["terminal"] == True: BotProcessor.setExpectedType(ExpectedMessageTypes.Terminal)
 	
 	# Обработка команды: start.
 	@Bot.message_handler(commands = ["start"])
@@ -141,6 +148,75 @@ else:
 				# Установка ожидаемого типа сообщения.
 				BotProcessor.setExpectedType(ExpectedMessageTypes.Undefined)
 
+			# Тип сообщения: консольная команда.
+			if ExcpectedValue == ExpectedMessageTypes.Terminal and "📟" not in Message.text:
+				# Приведение текста сообщения к нужному формату.
+				MessageBufer = RemoveRecurringSubstrings(Message.text.lower(), " ")
+				
+				#==========================================================================================#
+				# >>>>> DEPRECATED <<<<< #
+				#==========================================================================================#
+
+				# Если для выполнения команды не требуется Telethon и команда поддерживает трансляцию.
+				if MessageBufer not in ["reconnect", "register", "send", "start"] and MessageBufer not in ["cls", "exit"]:
+					# Буфер консольного вывода.
+					Bufer = StringIO()
+					# Установка буфера.
+					sys.stdout = Bufer
+					# Запуск обработчика команды.
+					CLI(Settings, VERSION, False).processCommand(MessageBufer)
+					# Вывод.
+					Output = Bufer.getvalue()
+					# Очистка стилей.
+					Output = RemoveRegexSubstring(Output, "\[\d{1,2}m")
+					
+					# Если выполняется команда помощи.
+					if "help" in MessageBufer:
+						# Форматирование вывода.
+						Output = Output.replace("  ", "\n")
+						Output = RemoveRecurringSubstrings(Output, "\n")
+						Output = Output.replace("\n ", "\n")
+						Output = Output.replace("-", "")
+						Output = Output.split("\n")
+						
+						# Для каждой строки.
+						for Index in range(0, len(Output)): 
+							# Если строка в нижнем регистре, выделить её курсивом.
+							if Output[Index].islower() == True: Output[Index] = "\n> " + Output[Index]
+							
+						# Объединение строк.
+						Output = "\n".join(Output)
+
+					# Отправка сообщения: вывод терминала.
+					if Output != "": Bot.send_message(
+						Message.chat.id,
+						EscapeCharacters(Output),
+						parse_mode = "MarkdownV2",
+						disable_web_page_preview = True,
+						reply_markup = BuildAdminMenu(BotProcessor)
+					)
+						
+				# Если команду невозможно выполнить.
+				elif MessageBufer in ["cls", "exit"]:
+					# Отправка сообщения: команда не поддерживается.
+					Bot.send_message(
+						Message.chat.id,
+						"*📟 Терминал*\n\nКоманда не поддерживает трансляцию через бота\.",
+						parse_mode = "MarkdownV2",
+						disable_web_page_preview = True,
+						reply_markup = BuildAdminMenu(BotProcessor)
+					)
+						
+				else:
+					# Отправка сообщения: команда не поддерживается.
+					Bot.send_message(
+						Message.chat.id,
+						"*📟 Терминал*\n\nВыполнение данной команды требует асинхронного исполнения модуля библиотеки [Telethon](https://github.com/LonamiWebs/Telethon) и потому не может быть запущено\. Используйте протокол SSH для прямого доступа к терминалу сервера\.",
+						parse_mode = "MarkdownV2",
+						disable_web_page_preview = True,
+						reply_markup = BuildAdminMenu(BotProcessor)
+					)
+
 			# Тип сообщения: неопределённый.
 			if ExcpectedValue == ExpectedMessageTypes.Undefined:
 				
@@ -177,7 +253,9 @@ else:
 					BotProcessor.sendMessage(Message.chat.id)
 					
 				# Отправка списка целей.
-				if Message.text == "👥 Список целей":
+				if Message.text == "👥 Аудитория":
+					# Включение терминала.
+					BotProcessor.waitAuditorium(True)
 					# Отправка сообщения: редактирование приветствия.
 					Bot.send_message(
 						Message.chat.id,
@@ -187,6 +265,31 @@ else:
 					)
 					# Установка ожидаемого типа сообщения.
 					BotProcessor.setExpectedType(ExpectedMessageTypes.Targets)
+					
+				# Включение терминала.
+				if Message.text == "📟 Терминал":
+					# Включение терминала.
+					BotProcessor.useTerminal(True)
+					# Отправка сообщения: запуск терминала.
+					Bot.send_message(
+						Message.chat.id,
+						"*📟 Терминал*\n\nЗапущен консольный интерфейс\. Все символы будут автоматически приведены к нижнему регистру\.",
+						parse_mode = "MarkdownV2",
+						reply_markup = BuildAdminMenu(BotProcessor)
+					)
+					# Установка ожидаемого типа сообщения.
+					BotProcessor.setExpectedType(ExpectedMessageTypes.Terminal)
+					
+				# Вывод помощи.
+				if Message.text == "❓ Помощь":
+					# Отправка сообщения: помощь.
+					Bot.send_message(
+						Message.chat.id,
+						"*❓ Помощь*\n\nЗадайте список пользователей для рассылки, настройте сообщение и вложения и откройте терминал, чтобы продолжить работу\. Дополнительные сведения о взаимодействии с консолью доступны внутри неё при выполнении команды *help*\.\n\nОтправьте /unattach, чтобы удалить все вложения\.\n\nПодробнее на [GitHub](https://github.com/DUB1401/SpamBot)\.",
+						parse_mode = "MarkdownV2",
+						disable_web_page_preview = True,
+						reply_markup = BuildAdminMenu(BotProcessor)
+					)
 					
 			# Тип сообщения: команда остановки сбора вложения.
 			if ExcpectedValue in [ExpectedMessageTypes.Image, ExpectedMessageTypes.Undefined]:
@@ -207,7 +310,41 @@ else:
 					)
 					# Установка ожидаемого типа сообщения.
 					BotProcessor.setExpectedType(ExpectedMessageTypes.Undefined)
-					
+
+			# Тип сообщения: отмена выбора аудитории.
+			if ExcpectedValue in [ExpectedMessageTypes.Targets, ExpectedMessageTypes.Undefined]:
+				
+				# Отключение терминала.
+				if Message.text == "👥 Отменить":
+					# Включение терминала.
+					BotProcessor.waitAuditorium(False)
+					# Отправка сообщения: отмена процедуры.
+					Bot.send_message(
+						Message.chat.id,
+						"*👥 Аудитория*\n\nВыбор целевой аудитории отменён\.",
+						parse_mode = "MarkdownV2",
+						reply_markup = BuildAdminMenu(BotProcessor)
+					)
+					# Установка ожидаемого типа сообщения.
+					BotProcessor.setExpectedType(ExpectedMessageTypes.Undefined)
+
+			# Тип сообщения: закрытие терминала.
+			if ExcpectedValue in [ExpectedMessageTypes.Terminal, ExpectedMessageTypes.Undefined]:
+				
+				# Отключение терминала.
+				if Message.text == "📟 Закрыть":
+					# Отключение терминала.
+					BotProcessor.useTerminal(False)
+					# Отправка сообщения: терминал недоступен.
+					Bot.send_message(
+						Message.chat.id,
+						"*📟 Терминал*\n\nОболочка консольного интерфейса закрыта\.",
+						parse_mode = "MarkdownV2",
+						reply_markup = BuildAdminMenu(BotProcessor)
+					)
+					# Установка ожидаемого типа сообщения.
+					BotProcessor.setExpectedType(ExpectedMessageTypes.Undefined)
+							
 		# Если введён верный пароль.
 		elif Message.text == Settings["password"]: 
 			# Выдача прав администратора.
@@ -281,4 +418,3 @@ else:
 		
 	# Запуск обработки запросов Telegram.
 	Bot.infinity_polling(allowed_updates = telebot.util.update_types)
-		

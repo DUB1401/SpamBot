@@ -3,7 +3,11 @@
 	"premium": false,
 	"password": "1234",
 	"message": "Здравствуйте!",
-	"collect-media": false,
 	"send-auto-unban-requests": "",
-	"delay": 1
+	"delay": 1,
+	"statuses": {
+		"collect-media": false,
+		"targeting": false,
+		"terminal": false
+	}
 }

@@ -10,7 +10,11 @@ import os
 # Создаёт разметку меню администратора.
 def BuildAdminMenu(BotProcessor: any) -> types.ReplyKeyboardMarkup:
 	# Статус коллекционирования.
-	Collect = "" if BotProcessor.getData()["collect-media"] == False else " (остановить)"
+	Collect = "" if BotProcessor.getData()["statuses"]["collect-media"] == False else " (остановить)"
+	# Статус выбора целей.
+	Targets = "Аудитория" if BotProcessor.getData()["statuses"]["targeting"] == False else "Отменить"
+	# Статус использования терминала.
+	Console = "Терминал" if BotProcessor.getData()["statuses"]["terminal"] == False else "Закрыть"
 	
 	# Меню администратора.
 	Menu = types.ReplyKeyboardMarkup(resize_keyboard = True)
@@ -18,9 +22,11 @@ def BuildAdminMenu(BotProcessor: any) -> types.ReplyKeyboardMarkup:
 	Edit = types.KeyboardButton("✍ Редактировать")
 	Add = types.KeyboardButton("🖼️ Медиа" + Collect)
 	Preview = types.KeyboardButton("🔍 Предпросмотр")
-	Targets = types.KeyboardButton("👥 Список целей")
+	Targets = types.KeyboardButton(f"👥 {Targets}")
+	CLI = types.KeyboardButton(f"📟 {Console}")
+	Help = types.KeyboardButton("❓ Помощь")
 	# Добавление кнопок в меню.
-	Menu.add(Edit, Add, Preview, Targets, row_width = 2)
+	Menu.add(Edit, Add, Preview, Targets, CLI, Help, row_width = 2)
 	
 	return Menu
 
