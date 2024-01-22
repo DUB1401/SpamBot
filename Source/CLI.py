@@ -6,16 +6,18 @@ import datetime
 
 # Список команд.
 HELP_COMMANDS = [
-	"cls".ljust(16) + " Clears terminal output.",	
-	"disable".ljust(16) + " Prohibits app from using account for mailing.",	
-	"enable".ljust(16) + " Allows app to use account for mailing.",	
-	"exit".ljust(16) + " Exit app.",	
-	"help".ljust(16) + " Types help data.",	
-	"list".ljust(16) + " Types list of registered accounts.",	
-	"register".ljust(16) + " Register new Telegram account in app.",	
-	"send".ljust(16) + " Sends message to @username or by user link.",
-	"start".ljust(16) + " Starting spam mailing.",
-	"unregister".ljust(16) + " Logout and remove account data."
+	"cls".ljust(16) + "Clears terminal output.",	
+	"disable".ljust(16) + "Prohibits app from using account for mailing.",	
+	"enable".ljust(16) + "Allows app to use account for mailing.",	
+	"exit".ljust(16) + "Exit app.",	
+	"help".ljust(16) + "Types help data.",	
+	"list".ljust(16) + "Types list of registered accounts.",
+	"reconnect".ljust(16) + "Recconect account to app.",
+	"register".ljust(16) + "Register new Telegram account in app.",
+	"send".ljust(16) + "Sends message to @username or by user link.",
+	"set".ljust(16) + "Sets setting value.",
+	"start".ljust(16) + "Starting spam mailing.",
+	"unregister".ljust(16) + "Logout and remove account data."
 ]
 
 # Список аргументов команд.
@@ -29,6 +31,9 @@ HELP_ARGUMENTS = {
 	"help": {
 		"COMMAND": "Name of command, in which you need help."
 	},
+	"reconnect": {
+		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database."
+	},
 	"register": {
 		"PHONE_NUMBER*": "Mobile phone number in the international format.",
 		"API_ID*": "ID of API for account.",
@@ -37,9 +42,13 @@ HELP_ARGUMENTS = {
 	"send": {
 		"USERNAME*": "Name or link of Telegram user."
 	},
+	"set": {
+		"KEY*": "Settings key: delay.",
+		"VALUE*": "Settings value."
+	},
 	"unregister": {
 		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database."
-	},
+	}
 }
 
 # Обработчик треминальных команд.
@@ -159,6 +168,24 @@ class CLI:
 			# Вывод в консоль: разделитель.
 			print("==============================")
 			
+	# Переподключение аккаунта.
+	def __reconnect(self, Command: list[str]):
+		# Данные аккаунта.
+		Account = self.__Spammer.getAccountByID(int(Command[1]))
+		# Регистрация без кода.
+		Result = self.__Spammer.register(Account["phone-number"], Account["api-id"], Account["api-hash"], AccountID = int(Command[1]))
+		# Если вход не произведён, произвести с кодом.
+		if Result == False: Result = self.__Spammer.register(Account["phone-number"], Account["api-id"], Account["api-hash"], input("Enter security code: "), AccountID = int(Command[1]))
+
+		# Если регистрация успешна.
+		if Result == True: 
+			# Вывод в консоль: аккаунт успешно добавлен.
+			print("Telegram account successfully reconnected to app.")
+						
+		else:
+			# Вывод в консоль: аккаунт успешно добавлен.
+			StyledPrinter("[ERROR] Unable to reconnect account.", TextColor = Styles.Color.Red)
+			
 	# Регистрация аккаунта.
 	def __register(self, Command: list[str]):
 		# Регистрация без кода.
@@ -179,7 +206,25 @@ class CLI:
 	def __send(self, Command: list[str]):
 		# Попытка отправки сообщения.
 		self.__Spammer.send(Command[1].replace("https://t.me/", ""))
+		
+	# Установка значения настройки.
+	def __set(self, Command: list[str]):
+		# Результат выполнения.
+		Result = None
+		
+		# Если ключ определён.
+		if Command[1] == "password":
+			# Установка значения.
+			Result = self.__Spammer.set(Command[1], Command[2])
+
+		# Если ключ определён.
+		if Command[1] == "delay":
+			# Установка значения.
+			Result = self.__Spammer.set(Command[1], int(Command[2]))
 			
+		# Если команда не выполнена.
+		if Result in [None, False]: print(f"Unsupported key: \"{Command[1]}\".")
+
 	# Запуск рассылки.
 	def __start(self):
 		# Запуск рассылки.
@@ -241,8 +286,14 @@ class CLI:
 				# Регистрация аккаунта.
 				case "register": self.__register(Command)
 				
+				# Регистрация аккаунта.
+				case "reconnect": self.__reconnect(Command)
+
 				# Отправка сообщения.
 				case "send": self.__send(Command)
+				
+				# Установка значения настройки.
+				case "set": self.__set(Command)
 				
 				# Запуск рассылки.
 				case "start": self.__start()
@@ -258,7 +309,7 @@ class CLI:
 
 		except Exception as ExceptionData:
 			# Вывод в консоль: ошибка во время выполнения.
-			StyledPrinter("Runtime error:", TextColor = Styles.Color.Red, Newline = False)
+			StyledPrinter("Runtime error: ", TextColor = Styles.Color.Red, Newline = False)
 			# Вывод в консоль: исключение.
 			print(ExceptionData)
 			

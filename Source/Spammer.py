@@ -49,23 +49,6 @@ class Spammer:
 			
 		return ID
 
-	# Возвращает описание аккаунта.
-	def __GetAccountByID(self, AccountID: int) -> dict | None:
-		# Описание аккаунта.
-		Description = None
-		
-		# Для каждого аккаунта.
-		for Account in self.__Accounts["accounts"]:
-			
-			# Если ID совпал.
-			if Account["id"] == AccountID:
-				# Запись описания.
-				Description = Account
-				# Прерывание цикла.
-				break
-		
-		return Description
-
 	# Возвращает список ID подключённых аккаунтов.
 	def __GetAccountsID(self, OnlyActive: bool = False) -> list[int]:
 		# Список ID аккаунтов.
@@ -105,7 +88,7 @@ class Spammer:
 	# Возвращает дату из комментария аккаунта.
 	def __GetDate(self, AccountID: int) -> datetime.datetime | None:
 		# Получение аккаунта.
-		Account = self.__GetAccountByID(AccountID)
+		Account = self.getAccountByID(AccountID)
 		# Дата.
 		Date = None
 		
@@ -125,7 +108,7 @@ class Spammer:
 		shutil.copyfile(f"Data/Sessions/{AccountID}/SpamBot.session", "SpamBot.session")
 		if os.path.exists(f"Data/Sessions/{AccountID}/SpamBot.session-journal"): shutil.copyfile(f"Data/Sessions/{AccountID}/SpamBot.session-journal", "SpamBot.session-journal")
 		# Получение описания аккаунта.
-		AccountData = self.__GetAccountByID(AccountID)
+		AccountData = self.getAccountByID(AccountID)
 		# Создание клиента и подключение.
 		self.__CurrentClient = TelegramClient("SpamBot", AccountData["api-id"], AccountData["api-hash"], system_version = "4.16.30-vxCUSTOM")
 		self.__CurrentClient.connect()
@@ -134,6 +117,8 @@ class Spammer:
 	def __SaveAccounts(self):
 		# Перезапись максимального ID.
 		self.__Accounts["last-id"] = max(self.__GetAccountsID())
+		# Сортировка по возрастанию ID.
+		self.__Accounts["accounts"] = sorted(self.__Accounts["accounts"], key = lambda Value: Value["id"]) 
 		# Запись в файл.
 		WriteJSON("Data/Accounts.json", self.__Accounts)
 		
@@ -156,7 +141,7 @@ class Spammer:
 	# Отправляет запрос на разбан.
 	def __SendUnbanRequest(self, AccountID: int):
 		# Данные аккаунта.
-		Account = self.__GetAccountByID(AccountID)
+		Account = self.getAccountByID(AccountID)
 		# Premium-модификатор.
 		Premium = "+Premium" if Account["premium"] == True else ""
 		# Адрес почты для ответного письма.
@@ -263,9 +248,26 @@ class Spammer:
 		if self.__CurrentClient != None: self.__UnloadAccount(AccountID)
 		
 		return MuteStatus
+	
+	# Возвращает описание аккаунта.
+	def getAccountByID(self, AccountID: int) -> dict | None:
+		# Описание аккаунта.
+		Description = None
+		
+		# Для каждого аккаунта.
+		for Account in self.__Accounts["accounts"]:
+			
+			# Если ID совпал.
+			if Account["id"] == AccountID:
+				# Запись описания.
+				Description = Account
+				# Прерывание цикла.
+				break
+		
+		return Description
 
 	# Регистрирует новый аккаунт.
-	def register(self, PhoneNumber: str, ApiID: int | str, ApiHash: str, Code: str | None = None) -> bool:
+	def register(self, PhoneNumber: str, ApiID: int | str, ApiHash: str, Code: str | None = None, AccountID: int | None = None) -> bool:
 		# Состояние: авторизован ли пользователь.
 		IsAuth = False
 		
@@ -291,9 +293,19 @@ class Spammer:
 			# Переключение состояния.
 			IsAuth = True
 			# ID аккаунта.
-			ID = self.__GenerateID()
+			ID = self.__GenerateID() if AccountID == None else AccountID
 			# Структура пользователя.
 			UserStruct = self.__Client.get_me()
+			# Поиск существующего аккаунта.
+			AccountSearch = self.getAccountByID(AccountID)
+			
+			try:
+				# Удаление существущей записи.
+				self.__Accounts["accounts"].pop(self.__Accounts["accounts"].index(AccountSearch))
+				
+			except:
+				pass
+
 			# Буфер аккаунта.
 			Bufer = {
 				"id": ID,
@@ -305,7 +317,9 @@ class Spammer:
 				"ban": False,
 				"active": True,
 				"comment": None
-			}
+			} if AccountSearch == None else AccountSearch
+			# Отключение бана.
+			Bufer["ban"] = False
 			# Запись данных аккаунта.
 			self.__Accounts["accounts"].append(Bufer)
 			# Сохранение сессии и описания аккаунта.
@@ -333,7 +347,7 @@ class Spammer:
 				# Для каждого аккаунта.
 				for CurrentUnmuteAccountID in self.__GetAccountsID():
 					# Текущий аккаунт.
-					CurrentAccount = self.__GetAccountByID(CurrentUnmuteAccountID)
+					CurrentAccount = self.getAccountByID(CurrentUnmuteAccountID)
 					# Если аккаунт замучен, проверить актуальность мута.
 					if CurrentAccount["mute"] == True: self.checkAccountMute(CurrentUnmuteAccountID) 
 
@@ -434,6 +448,25 @@ class Spammer:
 			
 		return ExecutionCode
 	
+	# Устанавливает значение настройки.
+	def set(self, Key: str, Value: any) -> bool:
+		# Состояние: успешна ли установка.
+		IsSuccess = False
+		
+		# Для каждого ключа в настройках.
+		for SettingsKey in self.__Settings.keys():
+			
+			# Если ключ совпадает.
+			if SettingsKey == Key:
+				# Перезапись значения.
+				self.__Settings[Key] = Value
+				# Сохранение файла.
+				WriteJSON("Settings.json", self.__Settings)
+				# Переключение состояния.
+				IsSuccess = True
+				
+		return IsSuccess
+
 	# Запускает рассылку.
 	def startMailing(self, Logging: bool = True):
 		# Чтение JSON целей.
