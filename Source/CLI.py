@@ -1,8 +1,12 @@
+from dublib.Methods import Cls, RemoveRecurringSubstrings
 from Source.Spammer import Spammer
 from dublib.StyledPrinter import *
-from dublib.Methods import Cls
+from threading import Event
+from io import StringIO
 
 import datetime
+import sys
+import zmq
 
 # Список команд.
 HELP_COMMANDS = [
@@ -54,6 +58,32 @@ HELP_ARGUMENTS = {
 # Обработчик треминальных команд.
 class CLI:
 	
+	#==========================================================================================#
+	# >>>>> ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ <<<<< #
+	#==========================================================================================#
+
+	# Имплементирует методы ввода.
+	def __input(self, Decoration: str) -> str:
+		# Буфер чтения.
+		Bufer = None
+		
+		# Если используется сервер.
+		if self.__IsServer == True:
+			# Отправка запроса на ввод.
+			self.__Socket.send_string("code=1;msg=" + Decoration)
+			# Ожидание сообщения.
+			Bufer = self.__Socket.recv().decode()
+		
+		else:
+			# Стандартное чтение.
+			Bufer = input(Decoration)
+			
+		return Bufer
+	
+	#==========================================================================================#
+	# >>>>> КОНСОЛЬНЫЕ МЕТОДЫ <<<<< #
+	#==========================================================================================#
+
 	# Очистка консоли.
 	def __cls(self):
 		# Очистка консоли.
@@ -175,7 +205,7 @@ class CLI:
 		# Регистрация без кода.
 		Result = self.__Spammer.register(Account["phone-number"], Account["api-id"], Account["api-hash"], AccountID = int(Command[1]))
 		# Если вход не произведён, произвести с кодом.
-		if Result == False: Result = self.__Spammer.register(Account["phone-number"], Account["api-id"], Account["api-hash"], input("Enter security code: "), AccountID = int(Command[1]))
+		if Result == False: Result = self.__Spammer.register(Account["phone-number"], Account["api-id"], Account["api-hash"], self.__input("Enter security code: "), AccountID = int(Command[1]))
 
 		# Если регистрация успешна.
 		if Result == True: 
@@ -191,7 +221,7 @@ class CLI:
 		# Регистрация без кода.
 		Result = self.__Spammer.register(Command[1], Command[2], Command[3])
 		# Если вход не произведён, произвести с кодом.
-		if Result == False: Result = self.__Spammer.register(Command[1], Command[2], Command[3], input("Enter security code: "))
+		if Result == False: Result = self.__Spammer.register(Command[1], Command[2], Command[3], self.__input("Enter security code: "))
 
 		# Если регистрация успешна.
 		if Result == True: 
@@ -236,9 +266,13 @@ class CLI:
 		Result = self.__Spammer.unregister(int(Command[1]))
 		# Если удаление не выполнено, вывести ошибку.
 		if Result == False: StyledPrinter(f"[ERROR] Unable to find account with ID {Command[1]}.", TextColor = Styles.Color.Red)
+		
+	#==========================================================================================#
+	# >>>>> МЕТОДЫ <<<<< #
+	#==========================================================================================#
 			
 	# Конструктор.
-	def __init__(self, Settings: dict, Version: str, Clear: bool = True):
+	def __init__(self, Settings: dict, Version: str, Clear: bool = True, Server: bool = False):
 		
 		#---> Генерация динамических свойств.
 		#==========================================================================================#
@@ -248,10 +282,14 @@ class CLI:
 		self.__Settings = Settings.copy()
 		# Версия.
 		self.__Version = Version
+		# Состояние: используется ли сервер.
+		self.__IsServer = Server
 		
 		# Очистка консоли.
 		if Clear == True: self.__cls()
-	
+		# Если используется сервер, вывести сообщение.
+		if Clear == True and Server == True: print("\nRunning server on tcp://localhost:" + str(self.__Settings["port"]) + "...")
+		
 	# Обрабатывает команду.
 	def processCommand(self, Command: str):
 		# Разбиение команды по пробелам.
@@ -308,10 +346,10 @@ class CLI:
 				case _: print("Unknown command. Type \"help\" for more information.")
 
 		except Exception as ExceptionData:
+			# Описание ошибки.
+			ErrorDescription = RemoveRecurringSubstrings("Runtime error: " + str(ExceptionData), " ")
 			# Вывод в консоль: ошибка во время выполнения.
-			StyledPrinter("Runtime error: ", TextColor = Styles.Color.Red, Newline = False)
-			# Вывод в консоль: исключение.
-			print(ExceptionData)
+			StyledPrinter(ErrorDescription, TextColor = Styles.Color.Red, Newline = False)
 			
 	# Запускает цикл обработки терминала.
 	def runLoop(self):
@@ -324,3 +362,38 @@ class CLI:
 			Input = input("> ")
 			# Обработка команды.
 			self.processCommand(Input)		
+			
+	# Запускает сервер обработки терминала.
+	def runServer(self):
+		# Инициализация сокета.
+		Context = zmq.Context()
+		self.__Socket = Context.socket(zmq.REP)
+		self.__Socket.bind("tcp://127.0.0.1:" + str(self.__Settings["port"]))
+		
+		# Постоянно.
+		while True:
+				
+			try:
+				# Буфер консольного вывода.
+				Bufer = StringIO()
+				# Установка буфера.
+				sys.stdout = Bufer
+				# Ожидание сообщения.
+				RequestData = self.__Socket.recv().decode()
+			
+				# Если сработало событие.
+				if RequestData == "exit":
+					# Отправка ответа.
+					self.__Socket.send_string("code=-1;msg=exit")
+					# Освобождение порта.
+					self.__Socket.unbind("tcp://127.0.0.1:" + str(self.__Settings["port"]))
+					# Остановка цикла.
+					break
+			
+				# Обработка запроса.
+				self.processCommand(RequestData)
+				# Отправка ответа.
+				self.__Socket.send_string("code=0;msg=" + Bufer.getvalue().strip())
+		
+			except Exception:
+				pass

@@ -4,6 +4,7 @@
 	"password": "1234",
 	"message": "Здравствуйте!",
 	"send-auto-unban-requests": "",
+	"port": 5555,
 	"delay": 1,
 	"statuses": {
 		"collect-media": false,

@@ -1,14 +1,15 @@
-from dublib.Methods import CheckPythonMinimalVersion, MakeRootDirectories, ReadJSON, RemoveFolderContent, RemoveRecurringSubstrings, RemoveRegexSubstring
-from dublib.StyledPrinter import *
-from dublib.Terminalyzer import *
-from Source.BotManager import *
+from dublib.Terminalyzer import ArgumentType, Command, Terminalyzer
+from Source.BotManager import BotManager, ExpectedMessageTypes
+from Source.Terminal.Client import TerminalClinet
+from threading import Event, Thread
 from Source.Functions import *
+from dublib.Methods import *
 from Source.CLI import CLI
 from telebot import types
-from io import StringIO
-				
+from time import sleep
+
+import textwrap
 import telebot
-import sys
 
 #==========================================================================================#
 # >>>>> ИНИЦИАЛИЗАЦИЯ СКРИПТА <<<<< #
@@ -44,6 +45,7 @@ CommandsList.append(COM_execute)
 
 # Создание команды: run.
 COM_run = Command("run")
+COM_run.addFlagPosition(["s", "c"])
 CommandsList.append(COM_run)
 
 # Инициализация обработчика консольных аргументов.
@@ -62,12 +64,55 @@ if CommandDataStruct != None and "execute" == CommandDataStruct.Name:
 	
 # Обработка команды: run.
 elif CommandDataStruct != None and "run" == CommandDataStruct.Name:
-	# Запуск обработчика консольных команд.
-	CLI(Settings, VERSION).runLoop()
+
+	# Если указано запустить сервер.
+	if "s" in CommandDataStruct.Flags:
+		# Очистка консоли.
+		Cls()
+		# Запуск сервера.
+		CLI(Settings, VERSION, Server = True).runServer()
+		
+	# Если указано запустить клиент.
+	elif "c" in CommandDataStruct.Flags:
+		# Очистка консоли.
+		Cls()
+		# Инициализация клиента.
+		Client = TerminalClinet(Settings)
+		# Декоратор ввода.
+		InputDescriptor = "> " 
+
+		# Постоянно.
+		while True:
+			# Получение сообщения.
+			Message = input(InputDescriptor).strip()
+			# Если указано завершить общение, остановить цикл.
+			if Message == "exit": break
+			if Message == "cls": Cls()
+			# Декоратор ввода.
+			InputDescriptor = "> " 
+			
+			# Отправка сообщения.
+			Response = Client.send(Message)
+			
+			# Если получен простой ответ.
+			if Response.status_code == 0:
+				# Вывод сообщения.
+				print(Response.text)
+				
+			if Response.status_code == 1:
+				# Замена декоратора ввода.
+				InputDescriptor = Response.text 
+		
+	else:
+		# Запуск цикла обработки.
+		CLI(Settings, VERSION).runLoop()
 	
 # Запуск Telegram бота.
 else:
-	
+	# Запуск сервера.
+	ServerThread = None
+	# Инициализация клиента.
+	Client = TerminalClinet(Settings)
 	# Токен для работы определенного бота телегамм.
 	Bot = telebot.TeleBot(Settings["token"])
 	# Менеджер данных бота.
@@ -153,65 +198,68 @@ else:
 				# Приведение текста сообщения к нужному формату.
 				MessageBufer = RemoveRecurringSubstrings(Message.text.lower(), " ")
 				
-				#==========================================================================================#
-				# >>>>> DEPRECATED <<<<< #
-				#==========================================================================================#
-
-				# Если для выполнения команды не требуется Telethon и команда поддерживает трансляцию.
-				if MessageBufer not in ["reconnect", "register", "send", "start"] and MessageBufer not in ["cls", "exit"]:
-					# Буфер консольного вывода.
-					Bufer = StringIO()
-					# Установка буфера.
-					sys.stdout = Bufer
-					# Запуск обработчика команды.
-					CLI(Settings, VERSION, False).processCommand(MessageBufer)
-					# Вывод.
-					Output = Bufer.getvalue()
-					# Очистка стилей.
-					Output = RemoveRegexSubstring(Output, "\[\d{1,2}m")
+				# Если сообщение поддерживает трансляцию.
+				if MessageBufer not in ["cls", "exit"]:
+					# Отправка сообщения.
+					Response = Client.send(MessageBufer)
+				
+					# Если получен простой ответ.
+					if Response.status_code == 0:
+						# Очистка стилей.
+						Output = RemoveRegexSubstring(Response.text, "\[\d{1,2}m")
+						# Удаление разделителей.
+						Output = Output.replace("==============================", "")
 					
-					# Если выполняется команда помощи.
-					if "help" in MessageBufer:
-						# Форматирование вывода.
-						Output = Output.replace("  ", "\n")
-						Output = RemoveRecurringSubstrings(Output, "\n")
-						Output = Output.replace("\n ", "\n")
-						Output = Output.replace("-", "")
-						Output = Output.split("\n")
+						# Если выполняется команда помощи.
+						if "help" in MessageBufer:
+							# Форматирование вывода.
+							Output = Output.replace("  ", "\n")
+							Output = RemoveRecurringSubstrings(Output, "\n")
+							Output = Output.replace("\n ", "\n")
+							Output = Output.replace("-", "")
+							Output = Output.split("\n")
 						
-						# Для каждой строки.
-						for Index in range(0, len(Output)): 
-							# Если строка в нижнем регистре, выделить её курсивом.
-							if Output[Index].islower() == True: Output[Index] = "\n> " + Output[Index]
+							# Для каждой строки.
+							for Index in range(0, len(Output)): 
+								# Если строка в нижнем регистре, выделить её курсивом.
+								if Output[Index].islower() == True: Output[Index] = "\n> " + Output[Index]
 							
-						# Объединение строк.
-						Output = "\n".join(Output)
-
-					# Отправка сообщения: вывод терминала.
-					if Output != "": Bot.send_message(
-						Message.chat.id,
-						EscapeCharacters(Output),
-						parse_mode = "MarkdownV2",
-						disable_web_page_preview = True,
-						reply_markup = BuildAdminMenu(BotProcessor)
-					)
+							# Объединение строк.
+							Output = "\n".join(Output)
+					
+						# Если имеется вывод.
+						if Output != "":
+							# Разбитие вывода по максимальной длине сообщения.
+							Output = textwrap.wrap(Output, 4096, break_long_words = False, replace_whitespace = False)
 						
-				# Если команду невозможно выполнить.
-				elif MessageBufer in ["cls", "exit"]:
-					# Отправка сообщения: команда не поддерживается.
+							# Для каждой части сообщения.
+							for CurrentMessage in Output:
+								# Отправка сообщения: вывод терминала.
+								Bot.send_message(
+									Message.chat.id,
+									EscapeCharacters(CurrentMessage),
+									parse_mode = "MarkdownV2",
+									disable_web_page_preview = True,
+									reply_markup = BuildAdminMenu(BotProcessor)
+								)
+								# Выжидание интервала.
+								sleep(1)
+				
+					if Response.status_code == 1:
+						# Отправка сообщения: вывод терминала.
+						Bot.send_message(
+							Message.chat.id,
+							"*📟 Терминал*\n\nТребуется пользовательский ввод\.\n\n" + EscapeCharacters(Response.text),
+							parse_mode = "MarkdownV2",
+							disable_web_page_preview = True,
+							reply_markup = BuildAdminMenu(BotProcessor)
+						)
+					
+				else:
+					# Отправка сообщения: вывод терминала.
 					Bot.send_message(
 						Message.chat.id,
 						"*📟 Терминал*\n\nКоманда не поддерживает трансляцию через бота\.",
-						parse_mode = "MarkdownV2",
-						disable_web_page_preview = True,
-						reply_markup = BuildAdminMenu(BotProcessor)
-					)
-						
-				else:
-					# Отправка сообщения: команда не поддерживается.
-					Bot.send_message(
-						Message.chat.id,
-						"*📟 Терминал*\n\nВыполнение данной команды требует асинхронного исполнения модуля библиотеки [Telethon](https://github.com/LonamiWebs/Telethon) и потому не может быть запущено\. Используйте протокол SSH для прямого доступа к терминалу сервера\.",
 						parse_mode = "MarkdownV2",
 						disable_web_page_preview = True,
 						reply_markup = BuildAdminMenu(BotProcessor)
@@ -277,6 +325,10 @@ else:
 						parse_mode = "MarkdownV2",
 						reply_markup = BuildAdminMenu(BotProcessor)
 					)
+					# Настройка потока.
+					ServerThread = Thread(target = CLI(Settings, VERSION, False, True).runServer, name = "Server thread.")
+					# Запуск потока терминала.
+					ServerThread.start()
 					# Установка ожидаемого типа сообщения.
 					BotProcessor.setExpectedType(ExpectedMessageTypes.Terminal)
 					
@@ -342,6 +394,10 @@ else:
 						parse_mode = "MarkdownV2",
 						reply_markup = BuildAdminMenu(BotProcessor)
 					)
+					# Отправка сообщение об остановке.
+					Client.send("exit")
+					# Настройка потока.
+					ServerThread = None
 					# Установка ожидаемого типа сообщения.
 					BotProcessor.setExpectedType(ExpectedMessageTypes.Undefined)
 							

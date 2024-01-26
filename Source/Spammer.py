@@ -10,10 +10,11 @@ from time import sleep
 import dateparser
 import datetime
 import requests
+import asyncio
 import random
 import shutil
 import os
-
+	
 # Генератор спама.
 class Spammer:
 	
@@ -101,6 +102,9 @@ class Spammer:
 	
 	# Подготавилвает аккаунт к работе.
 	def __InitializeAccount(self, AccountID: int):
+		# Цикл обработки событий.
+		EventLoop = asyncio.new_event_loop()
+		asyncio.set_event_loop(EventLoop)
 		# Удаление старых файлов сессии.
 		if os.path.exists("SpamBot.session"): os.remove("SpamBot.session")
 		if os.path.exists("SpamBot.session-journal"): os.remove("SpamBot.session-journal")
@@ -110,7 +114,7 @@ class Spammer:
 		# Получение описания аккаунта.
 		AccountData = self.getAccountByID(AccountID)
 		# Создание клиента и подключение.
-		self.__CurrentClient = TelegramClient("SpamBot", AccountData["api-id"], AccountData["api-hash"], system_version = "4.16.30-vxCUSTOM")
+		self.__CurrentClient = TelegramClient("SpamBot", AccountData["api-id"], AccountData["api-hash"], system_version = "4.16.30-vxCUSTOM", loop = EventLoop)
 		self.__CurrentClient.connect()
 
 	# Сохраняет файл аккаунтов.
@@ -270,6 +274,9 @@ class Spammer:
 	def register(self, PhoneNumber: str, ApiID: int | str, ApiHash: str, Code: str | None = None, AccountID: int | None = None) -> bool:
 		# Состояние: авторизован ли пользователь.
 		IsAuth = False
+		# Цикл обработки событий.
+		EventLoop = asyncio.new_event_loop()
+		asyncio.set_event_loop(EventLoop)
 		
 		# Если клиент не инициализирован.
 		if self.__Client == None:
@@ -278,7 +285,7 @@ class Spammer:
 			if os.path.exists("SpamBot.session-journal"): os.remove("SpamBot.session-journal")
 			
 			# Создание клиента и подключение.
-			self.__Client = TelegramClient("SpamBot", int(ApiID), ApiHash, system_version = "4.16.30-vxCUSTOM")
+			self.__Client = TelegramClient("SpamBot", int(ApiID), ApiHash, system_version = "4.16.30-vxCUSTOM", loop = EventLoop)
 			self.__Client.connect()
 			
 		# Авторизация.
@@ -422,7 +429,7 @@ class Spammer:
 				# Блокировка аккаунта.
 				self.updateAccount(CurrentAccountID, "active", False)
 				
-			except [UserDeactivatedBanError, UserDeactivatedError] as ExceptionData:
+			except (UserDeactivatedBanError, UserDeactivatedError) as ExceptionData:
 				# Изменение кода исполнения.
 				ExecutionCode = 6
 				# Вывод в консоль: выжидание запрошенного Telegram интервала.
