@@ -2,5 +2,6 @@ pyTelegramBotAPI
 dateparser
 openpyxl
 Telethon
-dublib==0.2.0
+dublib
 pandas
+pyzmq

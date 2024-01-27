@@ -4,14 +4,15 @@
 ## Порядок установки и использования
 1. Загрузить последний релиз. Распаковать.
 2. Установить Python версии не старше 3.10.
-3. В среду исполнения установить следующие пакеты: [pyTelegramBotAPI](https://github.com/eternnoir/pyTelegramBotAPI), [dateparser](https://github.com/scrapinghub/dateparser), [openpyxl](https://foss.heptapod.net/openpyxl/openpyxl), [Telethon](https://github.com/LonamiWebs/Telethon), [dublib](https://github.com/DUB1401/dublib), [pandas](https://github.com/pandas-dev/pandas).
+3. В среду исполнения установить следующие пакеты: [pyTelegramBotAPI](https://github.com/eternnoir/pyTelegramBotAPI), [dateparser](https://github.com/scrapinghub/dateparser), [openpyxl](https://foss.heptapod.net/openpyxl/openpyxl), [Telethon](https://github.com/LonamiWebs/Telethon), [dublib](https://github.com/DUB1401/dublib), [pandas](https://github.com/pandas-dev/pandas), [pyzmq](https://github.com/zeromq/pyzmq).
 ```
 pip install pyTelegramBotAPI
 pip install dateparser
 pip install openpyxl
 pip install Telethon
-pip install dublib==0.2.0
+pip install dublib
 pip install pandas
+pip install pyzmq
 ```
 Либо установить сразу все пакеты при помощи следующей команды, выполненной из директории скрипта.
 ```
@@ -37,9 +38,15 @@ execute [COMMAND*]
 	* Аргумент – команда, пробелы в которой заменены знаками `+`.
 ___
 ```
-run
+run [MODE]
 ```
-Запускает CLI-оболочку.
+Запускает CLI-оболочку. Поддерживает модель общения сервер-клиент.
+
+**Описание позиций:**
+* **MODE** – режим работы во время использования сервер-клиент модели общения.
+	* Флаги:
+		* _**-с**_, _**-client**_ – указывает приложению роль клиента CLI;
+		* _**-s**_, _**-server**_ – указывает приложению роль сервера CLI.
 
 # Settings.json
 ```JSON
@@ -63,9 +70,9 @@ ___
 Текст приветственного сообщения. Поддерживает HTML разметку, допустимую в Telegram.
 ___
 ```JSON
-"send-auto-unban-requests": ""
+"email": ""
 ```
-Если указать здесь адрес электронной почты, SpamBot будет автоматически отправлять запросы на снятия бана с указанием этой почты.
+Если указать здесь адрес электронной почты, SpamBot будет автоматически отправлять запросы на снятие бана с указанием этой почты.
 ___
 ```JSON
 "port": 5555

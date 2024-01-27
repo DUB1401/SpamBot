@@ -1,4 +1,4 @@
-from telethon.errors import AuthKeyUnregisteredError, FloodWaitError, PeerFloodError, UserDeactivatedBanError, UserDeactivatedError
+from telethon.errors import AuthKeyUnregisteredError, FloodWaitError, PeerFloodError, PhoneNumberBannedError, UserDeactivatedBanError
 from dublib.Methods import ReadJSON, RemoveFolderContent, WriteJSON
 from telethon.tl.functions.contacts import ImportContactsRequest
 from dublib.StyledPrinter import StyledPrinter, Styles
@@ -10,7 +10,6 @@ from time import sleep
 import dateparser
 import datetime
 import requests
-import asyncio
 import random
 import shutil
 import os
@@ -102,9 +101,8 @@ class Spammer:
 	
 	# Подготавилвает аккаунт к работе.
 	def __InitializeAccount(self, AccountID: int):
-		# Цикл обработки событий.
-		EventLoop = asyncio.new_event_loop()
-		asyncio.set_event_loop(EventLoop)
+		# Выгрузка аккаунта.
+		if self.__CurrentClient != None: self.__UnloadAccount(AccountID)
 		# Удаление старых файлов сессии.
 		if os.path.exists("SpamBot.session"): os.remove("SpamBot.session")
 		if os.path.exists("SpamBot.session-journal"): os.remove("SpamBot.session-journal")
@@ -114,7 +112,7 @@ class Spammer:
 		# Получение описания аккаунта.
 		AccountData = self.getAccountByID(AccountID)
 		# Создание клиента и подключение.
-		self.__CurrentClient = TelegramClient("SpamBot", AccountData["api-id"], AccountData["api-hash"], system_version = "4.16.30-vxCUSTOM", loop = EventLoop)
+		self.__CurrentClient = TelegramClient("SpamBot", AccountData["api-id"], AccountData["api-hash"], system_version = "4.16.30-vxCUSTOM")
 		self.__CurrentClient.connect()
 
 	# Сохраняет файл аккаунтов.
@@ -141,21 +139,6 @@ class Spammer:
 		# Копирование новой сессии.
 		shutil.copyfile("SpamBot.session", f"Data/Sessions/{AccountID}/SpamBot.session")
 		if os.path.exists("SpamBot.session-journal"): shutil.copyfile("SpamBot.session-journal", f"Data/Sessions/{AccountID}/SpamBot.session-journal")
-		
-	# Отправляет запрос на разбан.
-	def __SendUnbanRequest(self, AccountID: int):
-		# Данные аккаунта.
-		Account = self.getAccountByID(AccountID)
-		# Premium-модификатор.
-		Premium = "+Premium" if Account["premium"] == True else ""
-		# Адрес почты для ответного письма.
-		Email = self.__Settings["send-auto-unban-requests"].replace("@", "%40")
-		# Номер телефона.
-		Phone = Account["phone-number"].replace("+", "%2B")
-		# Данные запроса.
-		Data = f"message=My{Premium}+account+has+been+deleted+or+deactivated.+How+can+I+restore+it%3F&email={Email}&phone={Phone}&setln=en"
-		# Запрос разбана.
-		requests.post(f"https://telegram.org/support", data = Data)
 		
 	# Выгружает текущий аккаунт из работы.
 	def __UnloadAccount(self, AccountID: int):
@@ -205,6 +188,9 @@ class Spammer:
 			
 		# Если дата мута исткела.
 		elif CompareDates(datetime.datetime.now(), UnmuteComment) == True:
+			# Удаление даты и статуса мута.
+			self.updateAccount(AccountID, "comment", None)
+			self.updateAccount(AccountID, "mute", False)
 			# Отправка сообщения спам-боту.
 			Result = self.send("@SpamBot", AccountID, Text = "/start", Logging = False, Unload = False, Unmute = False)
 		
@@ -246,7 +232,7 @@ class Spammer:
 		
 		elif Result != None:
 			# Вывод в консоль: ошибка проверки мута.
-			if Logging == True: StyledPrinter(f"[ERROR] Unable to request mute status from @SpamBot.", TextColor = Styles.Color.Red)
+			if Logging == True: StyledPrinter(f"[WARNING] Unable to request mute status from @SpamBot for account with ID {AccountID}.", text_color = Styles.Colors.Yellow)
 			
 		# Выгрузка аккаунта.
 		if self.__CurrentClient != None: self.__UnloadAccount(AccountID)
@@ -274,18 +260,14 @@ class Spammer:
 	def register(self, PhoneNumber: str, ApiID: int | str, ApiHash: str, Code: str | None = None, AccountID: int | None = None) -> bool:
 		# Состояние: авторизован ли пользователь.
 		IsAuth = False
-		# Цикл обработки событий.
-		EventLoop = asyncio.new_event_loop()
-		asyncio.set_event_loop(EventLoop)
 		
 		# Если клиент не инициализирован.
 		if self.__Client == None:
 			# Удаление старых файлов сессии.
 			if os.path.exists("SpamBot.session"): os.remove("SpamBot.session")
 			if os.path.exists("SpamBot.session-journal"): os.remove("SpamBot.session-journal")
-			
 			# Создание клиента и подключение.
-			self.__Client = TelegramClient("SpamBot", int(ApiID), ApiHash, system_version = "4.16.30-vxCUSTOM", loop = EventLoop)
+			self.__Client = TelegramClient("SpamBot", int(ApiID), ApiHash, system_version = "4.16.30-vxCUSTOM")
 			self.__Client.connect()
 			
 		# Авторизация.
@@ -369,7 +351,7 @@ class Spammer:
 				# Если передан номер телефона.
 				if Username.startswith("+") == True:
 					# Создание контакта.
-					Contact = InputPhoneContact(client_id = 0, phone = Username, first_name="SpamTarget", last_name = Username)
+					Contact = InputPhoneContact(client_id = 0, phone = Username, first_name = "SpamTarget", last_name = Username)
 					
 					try:
 						# Добавление контакта по номеру телефона.
@@ -378,7 +360,7 @@ class Spammer:
 					except Exception as ExceptionData:
 						# Вывод в консоль: исключение.
 						StyledPrinter("[DEBUG] " + str(ExceptionData))
-
+				
 				# Отправка сообщения.
 				self.__CurrentClient.send_message(
 					entity = Username,
@@ -386,6 +368,7 @@ class Spammer:
 					message = self.__Settings["message"] if Text == None else Text,
 					parse_mode = "HTML" 
 				)
+				
 				# Изменение кода исполнения.
 				ExecutionCode = 0
 				# Вывод в консоль: успешная отправка.
@@ -395,13 +378,13 @@ class Spammer:
 				# Изменение кода исполнения.
 				ExecutionCode = 1
 				# Вывод в консоль: не осталось рабочих аккаунтов.
-				if Logging: StyledPrinter(f"[ERROR] There are no working accounts left. Stopped.", TextColor = Styles.Color.Red)
+				if Logging: StyledPrinter(f"[ERROR] There are no working accounts left. Stopped.", text_color = Styles.Colors.Red)
 			
 			except PeerFloodError:
 				# Изменение кода исполнения.
 				ExecutionCode = 2
 				# Вывод в консоль: неспецифическая ошибка.
-				if Logging: StyledPrinter(f"[ERROR] Account {CurrentAccountID} muted.", TextColor = Styles.Color.Red)
+				if Logging: StyledPrinter(f"[ERROR] Account {CurrentAccountID} muted.", text_color = Styles.Colors.Red)
 				# Проверка мута аккаунта.
 				self.updateAccount(CurrentAccountID, "mute", True)
 				
@@ -409,7 +392,7 @@ class Spammer:
 				# Изменение кода исполнения.
 				ExecutionCode = 3
 				# Вывод в консоль: неспецифическая ошибка.
-				if Logging: StyledPrinter(f"[WARNING] Cann't send message: {Username}. Marked as incative.", TextColor = Styles.Color.Yellow)
+				if Logging: StyledPrinter(f"[WARNING] Cann't send message: {Username}. Marked as incative.", text_color = Styles.Colors.Yellow)
 				
 			except FloodWaitError as ExceptionData:
 				# Изменение кода исполнения.
@@ -417,7 +400,7 @@ class Spammer:
 				# Количество секунд ожидания.
 				Seconds = int(''.join(filter(str.isdigit, str(ExceptionData))))
 				# Вывод в консоль: выжидание запрошенного Telegram интервала.
-				if Logging: StyledPrinter(f"[WARNING] Waiting for {Seconds} seconds...", TextColor = Styles.Color.Yellow)
+				if Logging: StyledPrinter(f"[WARNING] Waiting for {Seconds} seconds...", text_color = Styles.Colors.Yellow)
 				# Выжидание интервала.
 				sleep(Seconds)
 				
@@ -425,22 +408,22 @@ class Spammer:
 				# Изменение кода исполнения.
 				ExecutionCode = 5
 				# Вывод в консоль: выжидание запрошенного Telegram интервала.
-				if Logging: StyledPrinter(f"[ERROR] Account {CurrentAccountID} requested authorization.", TextColor = Styles.Color.Red)
+				if Logging: StyledPrinter(f"[ERROR] Account {CurrentAccountID} requested authorization.", text_color = Styles.Colors.Red)
 				# Блокировка аккаунта.
 				self.updateAccount(CurrentAccountID, "active", False)
 				
-			except (UserDeactivatedBanError, UserDeactivatedError) as ExceptionData:
+			except (PhoneNumberBannedError, UserDeactivatedBanError) as ExceptionData:
 				# Изменение кода исполнения.
 				ExecutionCode = 6
 				# Вывод в консоль: выжидание запрошенного Telegram интервала.
-				if Logging: StyledPrinter(f"[ERROR] Account {CurrentAccountID} banned.", TextColor = Styles.Color.Red)
+				if Logging: StyledPrinter(f"[ERROR] Account {CurrentAccountID} banned.", text_color = Styles.Colors.Red)
 				# Блокировка аккаунта.
 				self.updateAccount(CurrentAccountID, "ban", True)
 				
 				# Если указана почта для отправки запроса о снятии бана.
-				if self.__Settings["send-auto-unban-requests"] not in ["", None]:
+				if self.__Settings["email"] not in ["", None]:
 					# Отправка запроса на снятие бана.
-					self.__SendUnbanRequest(CurrentAccountID)
+					self.sendUnbanRequest(CurrentAccountID)
 					# Вывод в консоль: запрос на снятие бана отправлен.
 					if Logging: print("[INFO] Unban request sended.")
 		
@@ -452,9 +435,26 @@ class Spammer:
 			
 			# Выгрузка аккаунта.
 			if ExecutionCode != 1 and Unload == True: self.__UnloadAccount(CurrentAccountID)
+			# Завершение цикла при проверке мута.
+			if Unmute == False: break
 			
 		return ExecutionCode
 	
+	# Отправляет запрос на разбан.
+	def sendUnbanRequest(self, AccountID: int):
+		# Данные аккаунта.
+		Account = self.getAccountByID(AccountID)
+		# Premium-модификатор.
+		Premium = "+Premium" if Account["premium"] == True else ""
+		# Адрес почты для ответного письма.
+		Email = self.__Settings["email"].replace("@", "%40")
+		# Номер телефона.
+		Phone = Account["phone-number"].replace("+", "%2B")
+		# Данные запроса.
+		Data = f"message=My{Premium}+account+has+been+deleted+or+deactivated.+How+can+I+restore+it%3F&email={Email}&phone={Phone}&setln=en"
+		# Запрос разбана.
+		requests.post(f"https://telegram.org/support", data = Data)
+
 	# Устанавливает значение настройки.
 	def set(self, Key: str, Value: any) -> bool:
 		# Состояние: успешна ли установка.

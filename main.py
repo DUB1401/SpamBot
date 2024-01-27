@@ -1,9 +1,9 @@
-from dublib.Terminalyzer import ArgumentType, Command, Terminalyzer
+from dublib.Methods import CheckPythonMinimalVersion, Cls, MakeRootDirectories, ReadJSON
+from dublib.Terminalyzer import ArgumentsTypes, Command, Terminalyzer
 from Source.BotManager import BotManager, ExpectedMessageTypes
 from Source.Terminal.Client import TerminalClinet
-from threading import Event, Thread
 from Source.Functions import *
-from dublib.Methods import *
+from threading import Thread
 from Source.CLI import CLI
 from telebot import types
 from time import sleep
@@ -40,40 +40,40 @@ CommandsList = list()
 
 # Создание команды: execute.
 COM_execute = Command("execute")
-COM_execute.addArgument(ArgumentType.All, Important = True)
+COM_execute.add_argument(ArgumentsTypes.All, important = True)
 CommandsList.append(COM_execute)
 
 # Создание команды: run.
 COM_run = Command("run")
-COM_run.addFlagPosition(["s", "c"])
+COM_run.add_flag_position(["s", "c", "server", "client"])
 CommandsList.append(COM_run)
 
 # Инициализация обработчика консольных аргументов.
 CAC = Terminalyzer()
 # Получение информации о проверке команд. 
-CommandDataStruct = CAC.checkCommands(CommandsList)
+CommandDataStruct = CAC.check_commands(CommandsList)
 
 #==========================================================================================#
 # >>>>> ОБРАБОТКА КОММАНД <<<<< #
 #==========================================================================================#
 
 # Обработка команды: execute.
-if CommandDataStruct != None and "execute" == CommandDataStruct.Name:
+if CommandDataStruct != None and "execute" == CommandDataStruct.name:
 	# Запуск обработчика консольных команд.
-	CLI(Settings, VERSION, False).processCommand(CommandDataStruct.Arguments[0].replace("+", " "))
+	CLI(Settings, VERSION, False).processCommand(CommandDataStruct.arguments[0].replace("+", " "))
 	
 # Обработка команды: run.
-elif CommandDataStruct != None and "run" == CommandDataStruct.Name:
+elif CommandDataStruct != None and "run" == CommandDataStruct.name:
 
 	# Если указано запустить сервер.
-	if "s" in CommandDataStruct.Flags:
+	if "s" in CommandDataStruct.flags or "server" in CommandDataStruct.flags:
 		# Очистка консоли.
 		Cls()
 		# Запуск сервера.
 		CLI(Settings, VERSION, Server = True).runServer()
 		
 	# Если указано запустить клиент.
-	elif "c" in CommandDataStruct.Flags:
+	elif "c" in CommandDataStruct.flags or "client" in CommandDataStruct.flags:
 		# Очистка консоли.
 		Cls()
 		# Инициализация клиента.
@@ -200,6 +200,18 @@ else:
 				
 				# Если сообщение поддерживает трансляцию.
 				if MessageBufer not in ["cls", "exit"]:
+					
+					# Если запускается рассылка.
+					if MessageBufer == "start":
+						# Отправка сообщения: предупреждение о методе обработки рассылки.
+						Bot.send_message(
+							Message.chat.id,
+							"*📟 Терминал*\n\nВы запустили процесс рассылки\. Пожалуйста, дождитесь его завершения, чтобы увидеть ответ терминала\.",
+							parse_mode = "MarkdownV2",
+							disable_web_page_preview = True,
+							reply_markup = BuildAdminMenu(BotProcessor)
+						)
+
 					# Отправка сообщения.
 					Response = Client.send(MessageBufer)
 				
@@ -387,6 +399,8 @@ else:
 				if Message.text == "📟 Закрыть":
 					# Отключение терминала.
 					BotProcessor.useTerminal(False)
+					# Установка ожидаемого типа сообщения.
+					BotProcessor.setExpectedType(ExpectedMessageTypes.Undefined)
 					# Отправка сообщения: терминал недоступен.
 					Bot.send_message(
 						Message.chat.id,
@@ -394,12 +408,16 @@ else:
 						parse_mode = "MarkdownV2",
 						reply_markup = BuildAdminMenu(BotProcessor)
 					)
-					# Отправка сообщение об остановке.
-					Client.send("exit")
+					
+					try:
+						# Отправка сообщение об остановке.
+						Client.send("exit")
+						
+					except:
+						pass
+					
 					# Настройка потока.
 					ServerThread = None
-					# Установка ожидаемого типа сообщения.
-					BotProcessor.setExpectedType(ExpectedMessageTypes.Undefined)
 							
 		# Если введён верный пароль.
 		elif Message.text == Settings["password"]: 

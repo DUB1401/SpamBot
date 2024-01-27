@@ -2,8 +2,8 @@
 	"token": "",
 	"premium": false,
 	"password": "1234",
-	"message": "Здравствуйте!",
-	"send-auto-unban-requests": "",
+	"message": "",
+	"email": "",
 	"port": 5555,
 	"delay": 1,
 	"statuses": {

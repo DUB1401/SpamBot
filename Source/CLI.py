@@ -1,7 +1,6 @@
 from dublib.Methods import Cls, RemoveRecurringSubstrings
+from dublib.StyledPrinter import StyledPrinter, Styles
 from Source.Spammer import Spammer
-from dublib.StyledPrinter import *
-from threading import Event
 from io import StringIO
 
 import datetime
@@ -21,6 +20,7 @@ HELP_COMMANDS = [
 	"send".ljust(16) + "Sends message to @username or by user link.",
 	"set".ljust(16) + "Sets setting value.",
 	"start".ljust(16) + "Starting spam mailing.",
+	"unban".ljust(16) + "Sends unban request to Telegram support.",
 	"unregister".ljust(16) + "Logout and remove account data."
 ]
 
@@ -49,6 +49,9 @@ HELP_ARGUMENTS = {
 	"set": {
 		"KEY*": "Settings key: delay.",
 		"VALUE*": "Settings value."
+	},
+	"unban": {
+		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database."
 	},
 	"unregister": {
 		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database."
@@ -89,7 +92,7 @@ class CLI:
 		# Очистка консоли.
 		Cls()
 		# Вывод в консоль: заголовок интерпретатора.
-		print(f"SpamBot {self.__Version}\nGitHub: https://github.com/DUB1401/SpamBot\nCopyright © DUB1401. 2022-" + str(datetime.datetime.now().year) + ".")
+		print(f"SpamBot {self.__Version}\nGitHub: https://github.com/DUB1401/SpamBot\nCopyright © DUB1401. 2023-" + str(datetime.datetime.now().year) + ".")
 		
 	# Проверяет наличие мута у аккаунта.
 	def __check(self, Command: list[str]):
@@ -103,7 +106,7 @@ class CLI:
 		# Попытка активации аккаунта.
 		Result = self.__Spammer.updateAccount(Command[1], "active", False)
 		# Если деактивация не выполнена, вывести ошибку.
-		if Result == False: StyledPrinter(f"[ERROR] Unable to find account with ID {Command[1]}.", TextColor = Styles.Color.Red)
+		if Result == False: StyledPrinter(f"[ERROR] Unable to find account with ID {Command[1]}.", text_color = Styles.Colors.Red)
 	
 	# Активация аккаунта.
 	def __enable(self, Command: list[str]):
@@ -112,7 +115,7 @@ class CLI:
 		# Попытка активации аккаунта.
 		Result = self.__Spammer.updateAccount(Command[1], "active", True)
 		# Если активация не выполнена, вывести ошибку.
-		if Result == False: StyledPrinter(f"[ERROR] Unable to find account with ID {Command[1]}.", TextColor = Styles.Color.Red)
+		if Result == False: StyledPrinter(f"[ERROR] Unable to find account with ID {Command[1]}.", text_color = Styles.Colors.Red)
 
 	# Вывод помощи.
 	def __help(self, Command: list[str]):
@@ -165,11 +168,11 @@ class CLI:
 			# Если аккаунт имеет мут.
 			if Account["mute"] == True: 
 				# Вывод статуса мута.
-				StyledPrinter("True", TextColor = Styles.Color.Red)
+				StyledPrinter("True", text_color = Styles.Colors.Red)
 				
 			else:
 				# Вывод статуса мута.
-				StyledPrinter("False", TextColor = Styles.Color.Green)
+				StyledPrinter("False", text_color = Styles.Colors.Green)
 				
 			# Вывод в консоль: есть ли бан.
 			print("Ban: ", end = "")
@@ -177,11 +180,11 @@ class CLI:
 			# Если аккаунт имеет мут.
 			if Account["ban"] == True: 
 				# Вывод статуса мута.
-				StyledPrinter("True", TextColor = Styles.Color.Red)
+				StyledPrinter("True", text_color = Styles.Colors.Red)
 				
 			else:
 				# Вывод статуса мута.
-				StyledPrinter("False", TextColor = Styles.Color.Green)
+				StyledPrinter("False", text_color = Styles.Colors.Green)
 
 			# Вывод в консоль: активность аккаунта.
 			print("Active: ", end = "")
@@ -189,11 +192,11 @@ class CLI:
 			# Если аккаунт активен.
 			if Account["active"] == True: 
 				# Вывод статуса.
-				StyledPrinter("True", TextColor = Styles.Color.Green)
+				StyledPrinter("True", text_color = Styles.Colors.Green)
 				
 			else:
 				# Вывод статуса.
-				StyledPrinter("False", TextColor = Styles.Color.Red)
+				StyledPrinter("False", text_color = Styles.Colors.Red)
 			
 			# Вывод в консоль: разделитель.
 			print("==============================")
@@ -214,7 +217,7 @@ class CLI:
 						
 		else:
 			# Вывод в консоль: аккаунт успешно добавлен.
-			StyledPrinter("[ERROR] Unable to reconnect account.", TextColor = Styles.Color.Red)
+			StyledPrinter("[ERROR] Unable to reconnect account.", text_color = Styles.Colors.Red)
 			
 	# Регистрация аккаунта.
 	def __register(self, Command: list[str]):
@@ -230,7 +233,7 @@ class CLI:
 						
 		else:
 			# Вывод в консоль: аккаунт успешно добавлен.
-			StyledPrinter("[ERROR] Unable to register account.", TextColor = Styles.Color.Red)
+			StyledPrinter("[ERROR] Unable to register account.", text_color = Styles.Colors.Red)
 			
 	# Отправка сообщения.
 	def __send(self, Command: list[str]):
@@ -259,13 +262,25 @@ class CLI:
 	def __start(self):
 		# Запуск рассылки.
 		self.__Spammer.startMailing()
+		
+	# Отправляет запрос на снятие бана.
+	def __unban(self, Command: list[str]):
+		
+		# Если указана электронная почта.
+		if self.__Settings["email"] not in ["", None]:
+			# Отправка запроса.
+			self.__Spammer.sendUnbanRequest(int(Command[1]))
+			
+		else:
+			# Вывод в консоль: не указана почта.
+			StyledPrinter(f"[ERROR] Email is not specified at setings.", text_color = Styles.Colors.Red)
 
 	# Удаляет данные аккаунта.
 	def __unregister(self, Command: list[str]):
 		# Попытка удаления аккаунта.
 		Result = self.__Spammer.unregister(int(Command[1]))
 		# Если удаление не выполнено, вывести ошибку.
-		if Result == False: StyledPrinter(f"[ERROR] Unable to find account with ID {Command[1]}.", TextColor = Styles.Color.Red)
+		if Result == False: StyledPrinter(f"[ERROR] Unable to find account with ID {Command[1]}.", text_color = Styles.Colors.Red)
 		
 	#==========================================================================================#
 	# >>>>> МЕТОДЫ <<<<< #
@@ -288,7 +303,7 @@ class CLI:
 		# Очистка консоли.
 		if Clear == True: self.__cls()
 		# Если используется сервер, вывести сообщение.
-		if Clear == True and Server == True: print("\nRunning server on tcp://localhost:" + str(self.__Settings["port"]) + "...")
+		if Clear == True and Server == True: print("Running server on tcp://localhost:" + str(self.__Settings["port"]) + "...")
 		
 	# Обрабатывает команду.
 	def processCommand(self, Command: str):
@@ -336,6 +351,9 @@ class CLI:
 				# Запуск рассылки.
 				case "start": self.__start()
 				
+				# Отправляет запрос на снятие бана.
+				case "unban": self.__unban(Command)
+				
 				# Удаляет данные аккаунта.
 				case "unregister": self.__unregister(Command)
 				
@@ -346,10 +364,10 @@ class CLI:
 				case _: print("Unknown command. Type \"help\" for more information.")
 
 		except Exception as ExceptionData:
-			# Описание ошибки.
-			ErrorDescription = RemoveRecurringSubstrings("Runtime error: " + str(ExceptionData), " ")
 			# Вывод в консоль: ошибка во время выполнения.
-			StyledPrinter(ErrorDescription, TextColor = Styles.Color.Red, Newline = False)
+			StyledPrinter("Runtime error: ", text_color = Styles.Colors.Red, end = False)
+			# Вывод в консоль: описание ошибки.
+			print(str(ExceptionData).strip())
 			
 	# Запускает цикл обработки терминала.
 	def runLoop(self):
@@ -368,28 +386,28 @@ class CLI:
 		# Инициализация сокета.
 		Context = zmq.Context()
 		self.__Socket = Context.socket(zmq.REP)
-		self.__Socket.bind("tcp://127.0.0.1:" + str(self.__Settings["port"]))
+		self.__Socket.bind("tcp://*:" + str(self.__Settings["port"]))
 		
 		# Постоянно.
 		while True:
 				
 			try:
-				# Буфер консольного вывода.
-				Bufer = StringIO()
-				# Установка буфера.
-				sys.stdout = Bufer
 				# Ожидание сообщения.
 				RequestData = self.__Socket.recv().decode()
-			
+				
 				# Если сработало событие.
 				if RequestData == "exit":
 					# Отправка ответа.
 					self.__Socket.send_string("code=-1;msg=exit")
 					# Освобождение порта.
-					self.__Socket.unbind("tcp://127.0.0.1:" + str(self.__Settings["port"]))
+					self.__Socket.unbind("tcp://*:" + str(self.__Settings["port"]))
 					# Остановка цикла.
 					break
 			
+				# Буфер консольного вывода.
+				Bufer = StringIO()
+				# Установка буфера.
+				sys.stdout = Bufer
 				# Обработка запроса.
 				self.processCommand(RequestData)
 				# Отправка ответа.
