@@ -1,6 +1,7 @@
-from dublib.Methods import Cls, RemoveRecurringSubstrings
 from dublib.StyledPrinter import StyledPrinter, Styles
+from Source.Functions import GetDigits
 from Source.Spammer import Spammer
+from dublib.Methods import Cls
 from io import StringIO
 
 import datetime
@@ -224,10 +225,10 @@ class CLI:
 		# Регистрация без кода.
 		Result = self.__Spammer.register(Command[1], Command[2], Command[3])
 		# Если вход не произведён, произвести с кодом.
-		if Result == False: Result = self.__Spammer.register(Command[1], Command[2], Command[3], self.__input("Enter security code: "))
+		if Result == False: Result = self.__Spammer.register(Command[1], Command[2], Command[3], GetDigits(self.__input("If you use Telegram, paste any non-number characters between code numbers.\nEnter security code: ")))
 
 		# Если регистрация успешна.
-		if Result == True: 
+		if Result == True:
 			# Вывод в консоль: аккаунт успешно добавлен.
 			print("Telegram account successfully registered in the app.")
 						
@@ -363,7 +364,7 @@ class CLI:
 				# Команда не распознана.
 				case _: print("Unknown command. Type \"help\" for more information.")
 
-		except Exception as ExceptionData:
+		except FileExistsError as ExceptionData:
 			# Вывод в консоль: ошибка во время выполнения.
 			StyledPrinter("Runtime error: ", text_color = Styles.Colors.Red, end = False)
 			# Вывод в консоль: описание ошибки.
@@ -379,7 +380,7 @@ class CLI:
 			# Запрос ввода команды.
 			Input = input("> ")
 			# Обработка команды.
-			self.processCommand(Input)		
+			self.processCommand(Input)
 			
 	# Запускает сервер обработки терминала.
 	def runServer(self):

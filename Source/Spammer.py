@@ -13,7 +13,7 @@ import requests
 import random
 import shutil
 import os
-	
+
 # Генератор спама.
 class Spammer:
 	
@@ -153,7 +153,7 @@ class Spammer:
 			
 	# Конструктор.
 	def __init__(self, Settings: dict):
-		
+
 		#---> Генерация динамических свойств.
 		#==========================================================================================#
 		# Глоабльные настройки.
@@ -164,6 +164,8 @@ class Spammer:
 		self.__CurrentClient = None
 		# Буфер клиента.
 		self.__Client = None
+		# Хэш устройства авторизации.
+		self.__Hash = None
 		
 	# Проверяет, замучен ли аккаунт.
 	def checkAccountMute(self, AccountID: int, Logging: bool = True) -> bool:
@@ -271,12 +273,14 @@ class Spammer:
 			self.__Client.connect()
 			
 		# Авторизация.
-		if Code != None: self.__Client.sign_in(PhoneNumber, Code)
+		if Code != None: 
+			self.__Client.sign_in(PhoneNumber, Code, phone_code_hash = self.__Hash)
+			
 			
 		# Если аккаунт не авторизован.
 		if self.__Client.is_user_authorized() == False:
 			# Отправка кода 2FA.
-			self.__Client.send_code_request(PhoneNumber)
+			self.__Hash  = self.__Client.sign_in(PhoneNumber).phone_code_hash
 				
 		else:
 			# Переключение состояния.
@@ -317,6 +321,7 @@ class Spammer:
 			# Отключение и обнуление клиента.
 			self.__Client.disconnect()
 			self.__Client = None
+			self.hash = None
 				
 		return IsAuth
 	

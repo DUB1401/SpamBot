@@ -8,5 +8,9 @@ Data/Sessions
 Targets.xlsx
 Attachments
 
+# Telegram session files.
+SpamBot.session-journal
+SpamBot.session
+
 # Python cache.
 __pycache__

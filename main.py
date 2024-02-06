@@ -1,4 +1,4 @@
-from dublib.Methods import CheckPythonMinimalVersion, Cls, MakeRootDirectories, ReadJSON
+from dublib.Methods import CheckPythonMinimalVersion, Cls, MakeRootDirectories, ReadJSON, RemoveFolderContent, RemoveRecurringSubstrings, RemoveRegexSubstring
 from dublib.Terminalyzer import ArgumentsTypes, Command, Terminalyzer
 from Source.BotManager import BotManager, ExpectedMessageTypes
 from Source.Terminal.Client import TerminalClinet
@@ -109,8 +109,6 @@ elif CommandDataStruct != None and "run" == CommandDataStruct.name:
 	
 # Запуск Telegram бота.
 else:
-	# Запуск сервера.
-	ServerThread = None
 	# Инициализация клиента.
 	Client = TerminalClinet(Settings)
 	# Токен для работы определенного бота телегамм.
@@ -337,11 +335,6 @@ else:
 						parse_mode = "MarkdownV2",
 						reply_markup = BuildAdminMenu(BotProcessor)
 					)
-					# Настройка потока.
-					ServerThread = Thread(target = CLI(Settings, VERSION, False, True).runServer, name = "Server thread.")
-					# Запуск потока терминала.
-					ServerThread.start()
-					# Установка ожидаемого типа сообщения.
 					BotProcessor.setExpectedType(ExpectedMessageTypes.Terminal)
 					
 				# Вывод помощи.
@@ -415,9 +408,6 @@ else:
 						
 					except:
 						pass
-					
-					# Настройка потока.
-					ServerThread = None
 							
 		# Если введён верный пароль.
 		elif Message.text == Settings["password"]: 

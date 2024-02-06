@@ -5,7 +5,12 @@ import datetime
 import requests
 import telebot
 import pandas
+import re
 import os
+
+# Возвращает только цифры из строки.
+def GetDigits(self, String: str):
+	return "".join(re.findall("\d", String))
 
 # Создаёт разметку меню администратора.
 def BuildAdminMenu(BotProcessor: any) -> types.ReplyKeyboardMarkup:
