@@ -1,10 +1,8 @@
-from dublib.Methods import CheckPythonMinimalVersion, Cls, MakeRootDirectories, ReadJSON, RemoveFolderContent, RemoveRecurringSubstrings, RemoveRegexSubstring
+from dublib.Methods import CheckPythonMinimalVersion, Cls, MakeRootDirectories, ReadJSON, RemoveFolderContent, RemoveRecurringSubstrings, ReplaceRegexSubstring
 from dublib.Terminalyzer import ArgumentsTypes, Command, Terminalyzer
 from Source.BotManager import BotManager, ExpectedMessageTypes
-from Source.Terminal.Client import TerminalClinet
+from Source.Terminal import CLI, TerminalClinet
 from Source.Functions import *
-from threading import Thread
-from Source.CLI import CLI
 from telebot import types
 from time import sleep
 
@@ -95,7 +93,7 @@ elif CommandDataStruct != None and "run" == CommandDataStruct.name:
 			Response = Client.send(Message)
 			
 			# Если получен простой ответ.
-			if Response.status_code == 0:
+			if Response.status_code == 0 and len(Response.text) > 0:
 				# Вывод сообщения.
 				print(Response.text)
 				
@@ -209,14 +207,14 @@ else:
 							disable_web_page_preview = True,
 							reply_markup = BuildAdminMenu(BotProcessor)
 						)
-
+					
 					# Отправка сообщения.
 					Response = Client.send(MessageBufer)
-				
+					
 					# Если получен простой ответ.
 					if Response.status_code == 0:
 						# Очистка стилей.
-						Output = RemoveRegexSubstring(Response.text, "\[\d{1,2}m")
+						Output = ReplaceRegexSubstring(Response.text, "\[\d{1,2}m", "")
 						# Удаление разделителей.
 						Output = Output.replace("==============================", "")
 					
@@ -335,6 +333,7 @@ else:
 						parse_mode = "MarkdownV2",
 						reply_markup = BuildAdminMenu(BotProcessor)
 					)
+					# Установка ожидаемого типа сообщения.
 					BotProcessor.setExpectedType(ExpectedMessageTypes.Terminal)
 					
 				# Вывод помощи.

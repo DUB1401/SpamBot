@@ -9,7 +9,7 @@ import re
 import os
 
 # Возвращает только цифры из строки.
-def GetDigits(self, String: str):
+def GetDigits(String: str):
 	return "".join(re.findall("\d", String))
 
 # Создаёт разметку меню администратора.
