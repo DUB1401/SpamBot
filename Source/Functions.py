@@ -118,7 +118,7 @@ def DownloadDoc(Token: str, Bot: telebot.TeleBot, FileID: int) -> bool:
 	return IsSuccess
 
 # Загружает изображение.
-def DownloadImage(Token: str, Bot: telebot.TeleBot, FileID: int) -> bool:
+def DownloadImage(Token: str, Bot: telebot.TeleBot, FileID: int, ChatID: int) -> bool:
 	# Состояние: успешна ли загрузка.
 	IsSuccess = False
 	# Получение сведений о файле.
@@ -143,6 +143,23 @@ def DownloadImage(Token: str, Bot: telebot.TeleBot, FileID: int) -> bool:
 				FileWriter.write(Response.content)
 				# Переключение статуса.
 				IsSuccess = True		
+				
+	# Если файл загружен успешно.
+	if IsSuccess == True:
+		# Отправка сообщения: файл загружен.
+		Bot.send_message(
+			chat_id = ChatID,
+			text = "🖼️ *Добавление вложений*\n\nФайл успешно загружен и установлен в качестве вложения\.",
+			parse_mode = "MarkdownV2"
+		)
+
+	else:
+		# Отправка сообщения: файл не загружен.
+		Bot.send_message(
+			chat_id = ChatID,
+			text = "🖼️ *Добавление вложений*\n\nВо время загрузки файла возникла ошибка\.",
+			parse_mode = "MarkdownV2"
+		)
 		
 	return IsSuccess
 

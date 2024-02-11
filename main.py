@@ -429,9 +429,7 @@ else:
 		# Тип сообщения: вложение.
 		if ExcpectedValue == ExpectedMessageTypes.Image:
 			# Сохранение изображения.
-			DownloadImage(Settings["token"], Bot, Message.photo[-1].file_id)
-			# Установка ожидаемого типа сообщения.
-			BotProcessor.setExpectedType(ExpectedMessageTypes.Undefined) 
+			DownloadImage(Settings["token"], Bot, Message.photo[-1].file_id, Message.chat.id)
 
 	# Обработка изображений (без сжатия) и документов.					
 	@Bot.message_handler(content_types=["document"])
@@ -442,9 +440,7 @@ else:
 		# Тип сообщения: вложение.
 		if ExpectedValue == ExpectedMessageTypes.Image:
 			# Сохранение изображения.
-			DownloadImage(Settings["token"], Bot, Message.document.file_id)
-			# Установка ожидаемого типа сообщения.
-			BotProcessor.setExpectedType(ExpectedMessageTypes.Undefined)
+			DownloadImage(Settings["token"], Bot, Message.document.file_id, Message.chat.id)
 			
 		# Тип сообщения: список целей.
 		if ExpectedValue == ExpectedMessageTypes.Targets:

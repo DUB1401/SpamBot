@@ -483,4 +483,8 @@ class CLI:
 				self.__Socket.send_string("code=0;msg=" + Bufer.getvalue().strip())
 		
 			except Exception:
-				pass
+				# Освобождение порта.
+				self.__Socket.unbind("tcp://*:" + str(self.__Settings["port"]))
+				# Подключение к порту.
+				self.__Socket = Context.socket(zmq.REP)
+				self.__Socket.bind("tcp://*:" + str(self.__Settings["port"]))
