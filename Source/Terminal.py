@@ -37,7 +37,7 @@ HELP_ARGUMENTS = {
 		"COMMAND": "Name of command, in which you need help."
 	},
 	"list": {
-		"SORT": "Flags of accounts valius for sorting: active, ban, mute."
+		"SORT": "Flags of accounts parameters for sorting: active, ban, mute."
 	},
 	"reconnect": {
 		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database."
@@ -51,8 +51,8 @@ HELP_ARGUMENTS = {
 		"USERNAME*": "Name or link of Telegram user."
 	},
 	"set": {
-		"KEY*": "Settings key: delay.",
-		"VALUE*": "Settings value."
+		"KEY*": "Setting key.",
+		"VALUE*": "Setting value."
 	},
 	"unban": {
 		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database."
@@ -330,21 +330,36 @@ class CLI:
 		
 	# Установка значения настройки.
 	def __set(self, Command: list[str]):
-		# Результат выполнения.
-		Result = None
+		# Типы значений.
+		Types = {
+			"token": None,
+			"premium": bool,
+			"password": str,
+			"message": None,
+			"email": str,
+			"port": int,
+			"delay": int,
+			"remove-banned-accounts": bool,
+			"statuses": None
+		}
 		
-		# Если ключ определён.
-		if Command[1] == "password":
-			# Установка значения.
-			Result = self.__Spammer.set(Command[1], Command[2])
-
-		# Если ключ определён.
-		if Command[1] == "delay":
-			# Установка значения.
-			Result = self.__Spammer.set(Command[1], int(Command[2]))
+		# Если команда определена.
+		if Command[1] in Types.keys():
 			
-		# Если команда не выполнена.
-		if Result in [None, False]: print(f"Unsupported key: \"{Command[1]}\".")
+			# Если для настройки указан тип.
+			if Types[Command[1]] != None:
+				# Установка параметра
+				Result = self.__Spammer.set(Command[1], Types[Command[1]](Command[2].lower().replace("false", "")))
+				# Если возникла ошибка, вывести сообщение.
+				if Result == False: StyledPrinter("[ERROR] Unknown issue occurs during editing settings.", text_color = Styles.Colors.Red)
+				
+			else:
+				# Вывод в лог: неподдерживаемый ключ.
+				print("This setting cannot be edited from CLI.")
+
+		else:
+			# Вывод в лог: неподдерживаемый ключ.
+			StyledPrinter(f"[ERROR] Unknown key: \"{Command[1]}\".", text_color = Styles.Colors.Red)
 
 	# Запуск рассылки.
 	def __start(self):
@@ -451,7 +466,7 @@ class CLI:
 				# Команда не распознана.
 				case _: print("Unknown command. Type \"help\" for more information.")
 
-		except FileExistsError as ExceptionData:
+		except Exception as ExceptionData:
 			# Вывод в консоль: ошибка во время выполнения.
 			StyledPrinter("Runtime error: ", text_color = Styles.Colors.Red, end = False)
 			# Вывод в консоль: описание ошибки.

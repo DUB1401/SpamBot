@@ -443,6 +443,13 @@ class Spammer:
 			# Завершение цикла при проверке мута.
 			if Unmute == False: break
 			
+		# Если аккаунт забанен и настройками указано удаление.
+		if ExecutionCode == 6 and self.__Settings["remove-banned-accounts"] == True:
+			# Удаление аккаунта.
+			self.unregister(CurrentAccountID)
+			# Вывод в консоль: аккаунт удалён из системы.
+			StyledPrinter(f"[WARNING] Account with ID {AccountID} automatically unregistered.", text_color = Styles.Colors.Yellow)
+			
 		return ExecutionCode
 	
 	# Отправляет запрос на разбан.

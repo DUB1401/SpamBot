@@ -6,6 +6,7 @@
 	"email": "",
 	"port": 5555,
 	"delay": 1,
+	"remove-banned-accounts": false,
 	"statuses": {
 		"collect-media": false,
 		"targeting": false,
