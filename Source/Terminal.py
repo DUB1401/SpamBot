@@ -1,4 +1,4 @@
-from dublib.StyledPrinter import StyledPrinter, Styles
+from dublib.StyledPrinter import StyledPrinter, Styles, TextStyler
 from Source.Functions import GetDigits
 from Source.Spammer import Spammer
 from dublib.Methods import Cls
@@ -35,6 +35,9 @@ HELP_ARGUMENTS = {
 	},
 	"help": {
 		"COMMAND": "Name of command, in which you need help."
+	},
+	"list": {
+		"SORT": "Flags of accounts valius for sorting: active, ban, mute."
 	},
 	"reconnect": {
 		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database."
@@ -214,9 +217,25 @@ class CLI:
 				print("Command haven't description or not found.")
 
 	# Вывод списка аккаунтов.
-	def __list(self):
+	def __list(self, Command: list[str]):
 		# Список аккаунтов.
 		Accounts = self.__Spammer.accounts
+		
+		# Если указан способ сортировки.
+		if len(Command) > 1:
+			# Вывод в консоль: способ сортировки.
+			print("Sorted by: " + TextStyler(Command[1], text_color = Styles.Colors.Yellow))
+			# Создание буфера.
+			Bufer = list()
+			
+			# Для каждого аккаунта.
+			for Account in Accounts:
+				
+				# Если аккаунт обладает свойством, записать его в буфер.
+				if Account[Command[1]] == True: Bufer.append(Account)
+				
+			# Перезапись списка аккаунтов.
+			Accounts = Bufer
 		
 		# Если есть аккаунты.
 		if len(Accounts) > 0:
@@ -225,7 +244,7 @@ class CLI:
 		
 		else:
 			# Вывод в консоль: нет аккаунтов.
-			print("Telegram accounts aren't registered. Use \"register\" to add new account.")
+			print("Telegram accounts aren't registered or sorted list is empty.")
 
 		# Для каждого аккаунта.
 		for Account in Accounts:
@@ -403,7 +422,7 @@ class CLI:
 				case "help": self.__help(Command)
 				
 				# Список аккаунтов.
-				case "list": self.__list()
+				case "list": self.__list(Command)
 				
 				# Регистрация аккаунта.
 				case "register": self.__register(Command)
@@ -432,7 +451,7 @@ class CLI:
 				# Команда не распознана.
 				case _: print("Unknown command. Type \"help\" for more information.")
 
-		except Exception as ExceptionData:
+		except FileExistsError as ExceptionData:
 			# Вывод в консоль: ошибка во время выполнения.
 			StyledPrinter("Runtime error: ", text_color = Styles.Colors.Red, end = False)
 			# Вывод в консоль: описание ошибки.
