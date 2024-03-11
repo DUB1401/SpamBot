@@ -263,66 +263,72 @@ class Spammer:
 		# Состояние: авторизован ли пользователь.
 		IsAuth = False
 		
-		# Если клиент не инициализирован.
-		if self.__Client == None:
-			# Удаление старых файлов сессии.
-			if os.path.exists("SpamBot.session"): os.remove("SpamBot.session")
-			if os.path.exists("SpamBot.session-journal"): os.remove("SpamBot.session-journal")
-			# Создание клиента и подключение.
-			self.__Client = TelegramClient("SpamBot", int(ApiID), ApiHash, system_version = "4.16.30-vxCUSTOM")
-			self.__Client.connect()
+		try:
+			# Если клиент не инициализирован.
+			if self.__Client == None:
+				# Удаление старых файлов сессии.
+				if os.path.exists("SpamBot.session"): os.remove("SpamBot.session")
+				if os.path.exists("SpamBot.session-journal"): os.remove("SpamBot.session-journal")
+				# Создание клиента и подключение.
+				self.__Client = TelegramClient("SpamBot", int(ApiID), ApiHash, system_version = "4.16.30-vxCUSTOM")
+				self.__Client.connect()
 			
-		# Авторизация.
-		if Code != None: 
-			self.__Client.sign_in(PhoneNumber, Code, phone_code_hash = self.__Hash)
+			# Если код не указан, выполнить авторизацию.
+			if Code != None: self.__Client.sign_in(PhoneNumber, Code, phone_code_hash = self.__Hash)
 			
-			
-		# Если аккаунт не авторизован.
-		if self.__Client.is_user_authorized() == False:
-			# Отправка кода 2FA.
-			self.__Hash  = self.__Client.sign_in(PhoneNumber).phone_code_hash
+			# Если аккаунт не авторизован.
+			if self.__Client.is_user_authorized() == False:
+				# Отправка кода 2FA.
+				self.__Hash  = self.__Client.sign_in(PhoneNumber).phone_code_hash
 				
-		else:
-			# Переключение состояния.
-			IsAuth = True
-			# ID аккаунта.
-			ID = self.__GenerateID() if AccountID == None else AccountID
-			# Структура пользователя.
-			UserStruct = self.__Client.get_me()
-			# Поиск существующего аккаунта.
-			AccountSearch = self.getAccountByID(AccountID)
+			else:
+				# Переключение состояния.
+				IsAuth = True
+				# ID аккаунта.
+				ID = self.__GenerateID() if AccountID == None else AccountID
+				# Структура пользователя.
+				UserStruct = self.__Client.get_me()
+				# Поиск существующего аккаунта.
+				AccountSearch = self.getAccountByID(AccountID)
 			
-			try:
-				# Удаление существущей записи.
-				self.__Accounts["accounts"].pop(self.__Accounts["accounts"].index(AccountSearch))
+				try:
+					# Удаление существущей записи.
+					self.__Accounts["accounts"].pop(self.__Accounts["accounts"].index(AccountSearch))
 				
-			except:
-				pass
+				except: pass
 
-			# Буфер аккаунта.
-			Bufer = {
-				"id": ID,
-				"phone-number": PhoneNumber,
-				"premium": UserStruct.premium,
-				"api-id": ApiID,
-				"api-hash": ApiHash,
-				"mute": False,
-				"ban": False,
-				"active": True,
-				"comment": None
-			} if AccountSearch == None else AccountSearch
-			# Отключение бана.
-			Bufer["ban"] = False
-			# Запись данных аккаунта.
-			self.__Accounts["accounts"].append(Bufer)
-			# Сохранение сессии и описания аккаунта.
-			self.__SaveSession(ID)
-			self.__SaveAccounts()
-			# Отключение и обнуление клиента.
-			self.__Client.disconnect()
+				# Буфер аккаунта.
+				Bufer = {
+					"id": ID,
+					"phone-number": PhoneNumber,
+					"premium": UserStruct.premium,
+					"api-id": ApiID,
+					"api-hash": ApiHash,
+					"mute": False,
+					"ban": False,
+					"active": True,
+					"comment": None
+				} if AccountSearch == None else AccountSearch
+				# Отключение бана.
+				Bufer["ban"] = False
+				# Запись данных аккаунта.
+				self.__Accounts["accounts"].append(Bufer)
+				# Сохранение сессии и описания аккаунта.
+				self.__SaveSession(ID)
+				self.__SaveAccounts()
+				# Отключение и обнуление клиента и хэша.
+				self.__Client.disconnect()
+				self.__Client = None
+				self.hash = None
+				
+		except Exception as ExceptionData:
+			# Обнуление клиента и хэша устройства.
 			self.__Client = None
 			self.hash = None
-				
+			# Вывод в консоль: не удалось добавить аккаунт.
+			StyledPrinter("[ERROR] Unable to register account during exception: ", text_color = Styles.Colors.Red, end = False)
+			print(f" \"{ExceptionData}\".")
+			
 		return IsAuth
 	
 	# Отправляет сообщение.

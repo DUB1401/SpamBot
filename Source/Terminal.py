@@ -320,7 +320,7 @@ class CLI:
 			print("Telegram account successfully registered in the app.")
 						
 		else:
-			# Вывод в консоль: аккаунт успешно добавлен.
+			# Вывод в консоль: не удалось добавить аккаунт.
 			StyledPrinter("[ERROR] Unable to register account.", text_color = Styles.Colors.Red)
 			
 	# Отправка сообщения.
