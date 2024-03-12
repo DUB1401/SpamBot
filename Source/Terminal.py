@@ -55,7 +55,8 @@ HELP_ARGUMENTS = {
 		"VALUE*": "Setting value."
 	},
 	"unban": {
-		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database."
+		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database.",
+		"SEND_REQUEST*": "Add \"-r\" flag to command for sending unban request."
 	},
 	"unregister": {
 		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database."
@@ -369,14 +370,21 @@ class CLI:
 	# Отправляет запрос на снятие бана.
 	def __unban(self, Command: list[str]):
 		
-		# Если указана электронная почта.
-		if self.__Settings["email"] not in ["", None]:
-			# Отправка запроса.
-			self.__Spammer.sendUnbanRequest(int(Command[1]))
+		# Если указано отправить запрос.
+		if "-r" in Command:
+
+			# Если указана электронная почта.
+			if self.__Settings["email"] not in ["", None]:
+				# Отправка запроса.
+				self.__Spammer.sendUnbanRequest(int(Command[1]))
 			
+			else:
+				# Вывод в консоль: не указана почта.
+				StyledPrinter(f"[ERROR] Email is not specified at settings.", text_color = Styles.Colors.Red)
+				
 		else:
-			# Вывод в консоль: не указана почта.
-			StyledPrinter(f"[ERROR] Email is not specified at setings.", text_color = Styles.Colors.Red)
+			# Снятие статуса бана.
+			self.__Spammer.updateAccount(int(Command[1]), "ban", False)
 
 	# Удаляет данные аккаунта.
 	def __unregister(self, Command: list[str]):
