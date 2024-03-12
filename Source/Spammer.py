@@ -259,9 +259,9 @@ class Spammer:
 		return Description
 
 	# Регистрирует новый аккаунт.
-	def register(self, PhoneNumber: str, ApiID: int | str, ApiHash: str, Code: str | None = None, AccountID: int | None = None) -> bool:
+	def register(self, PhoneNumber: str, ApiID: int | str, ApiHash: str, Code: str | None = None, AccountID: int | None = None) -> int:
 		# Состояние: авторизован ли пользователь.
-		IsAuth = False
+		IsAuth = -1
 		
 		try:
 			# Если клиент не инициализирован.
@@ -279,11 +279,13 @@ class Spammer:
 			# Если аккаунт не авторизован.
 			if self.__Client.is_user_authorized() == False:
 				# Отправка кода 2FA.
-				self.__Hash  = self.__Client.sign_in(PhoneNumber).phone_code_hash
+				self.__Hash = self.__Client.sign_in(PhoneNumber).phone_code_hash
+				# Переключение состояния.
+				IsAuth = -2
 				
 			else:
 				# Переключение состояния.
-				IsAuth = True
+				IsAuth = 0
 				# ID аккаунта.
 				ID = self.__GenerateID() if AccountID == None else AccountID
 				# Структура пользователя.
@@ -322,12 +324,15 @@ class Spammer:
 				self.hash = None
 				
 		except Exception as ExceptionData:
-			# Обнуление клиента и хэша устройства.
+			# Отключение и обнуление клиента и хэша.
+			self.__Client.disconnect()
 			self.__Client = None
 			self.hash = None
 			# Вывод в консоль: не удалось добавить аккаунт.
 			StyledPrinter("[ERROR] Unable to register account during exception: ", text_color = Styles.Colors.Red, end = False)
-			print(f" \"{ExceptionData}\".")
+			print(f" \"{ExceptionData}\".".strip())
+			# Переключение состояния.
+			IsAuth = 1
 			
 		return IsAuth
 	

@@ -312,15 +312,15 @@ class CLI:
 	def __register(self, Command: list[str]):
 		# Регистрация без кода.
 		Result = self.__Spammer.register(Command[1], Command[2], Command[3])
-		# Если вход не произведён, произвести с кодом.
-		if Result == False: Result = self.__Spammer.register(Command[1], Command[2], Command[3], GetDigits(self.__input("If you use Telegram, paste any non-number characters between code numbers.\n\nEnter security code: ")))
+		# Если запрошен код, произвести авторизацию с кодом.
+		if Result == -2: Result = self.__Spammer.register(Command[1], Command[2], Command[3], GetDigits(self.__input("If you use Telegram, paste any non-number characters between code numbers.\n\nEnter security code: ")))
 
 		# Если регистрация успешна.
-		if Result == True:
+		if Result == 0:
 			# Вывод в консоль: аккаунт успешно добавлен.
 			print("Telegram account successfully registered in the app.")
 						
-		else:
+		elif Result == -1:
 			# Вывод в консоль: не удалось добавить аккаунт.
 			StyledPrinter("[ERROR] Unable to register account.", text_color = Styles.Colors.Red)
 			
