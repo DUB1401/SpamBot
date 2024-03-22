@@ -59,7 +59,7 @@ HELP_ARGUMENTS = {
 		"SEND_REQUEST*": "Add \"-r\" flag to command for sending unban request."
 	},
 	"unregister": {
-		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database."
+		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database or \"*\" for all accounts selection."
 	}
 }
 
@@ -388,10 +388,12 @@ class CLI:
 
 	# Удаляет данные аккаунта.
 	def __unregister(self, Command: list[str]):
+		# ID аккаунта.
+		ID = None if Command[1] == "*" else int(Command[1])
 		# Попытка удаления аккаунта.
-		Result = self.__Spammer.unregister(int(Command[1]))
+		Result = self.__Spammer.unregister(ID)
 		# Если удаление не выполнено, вывести ошибку.
-		if Result == False: StyledPrinter(f"[ERROR] Unable to find account with ID {Command[1]}.", text_color = Styles.Colors.Red)
+		if Result == False: StyledPrinter(f"[ERROR] Unable to find account(s) with this parameters: \"{Command[1]}\".", text_color = Styles.Colors.Red)
 		
 	#==========================================================================================#
 	# >>>>> МЕТОДЫ <<<<< #

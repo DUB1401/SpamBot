@@ -117,8 +117,10 @@ class Spammer:
 
 	# Сохраняет файл аккаунтов.
 	def __SaveAccounts(self):
+		# Список ID всех аккаунтов.
+		Accounts = self.__GetAccountsID()
 		# Перезапись максимального ID.
-		self.__Accounts["last-id"] = max(self.__GetAccountsID())
+		self.__Accounts["last-id"] = max(Accounts) if len(Accounts) > 0 else 0
 		# Сортировка по возрастанию ID.
 		self.__Accounts["accounts"] = sorted(self.__Accounts["accounts"], key = lambda Value: Value["id"]) 
 		# Запись в файл.
@@ -542,31 +544,36 @@ class Spammer:
 				print(f"[INFO] User: {User}. Inactive.")
 	
 	# Удаляет данные аккаунта.
-	def unregister(self, AccountID: int) -> bool:
+	def unregister(self, AccountID: int | None) -> bool:
 		# Состояние: успешно ли удаление.
 		IsRemoved = False
 		# Список ID аккаунтов.
 		AccountsID = self.__GetAccountsID()
+		# Список ID удаляемых аккаунтов.
+		RemovedAccounts = [AccountID] if AccountID != None else AccountsID
 		
 		try:
-			# Определение порядкового индекса аккаунта в списке.
-			Index = AccountsID.index(AccountID)
-			# Удаление данных аккаунта.
-			self.__Accounts["accounts"].pop(Index)
 			
-			# Если папка сессии для аккаунта существует.
-			if os.path.exists(f"Data/Sessions/{AccountID}"):
-				# Удаление данных сессии.
-				RemoveFolderContent(f"Data/Sessions/{AccountID}")
-				os.rmdir(f"Data/Sessions/{AccountID}")
+			# Для ID каждого аккаунта. 
+			for CurrentID in RemovedAccounts:
+				# Определение порядкового индекса аккаунта в списке.
+				Index = AccountsID.index(CurrentID)
+				# Удаление данных аккаунта.
+				self.__Accounts["accounts"].pop(Index)
+			
+				# Если папка сессии для аккаунта существует.
+				if os.path.exists(f"Data/Sessions/{CurrentID}"):
+					# Удаление данных сессии.
+					RemoveFolderContent(f"Data/Sessions/{CurrentID}")
+					os.rmdir(f"Data/Sessions/{CurrentID}")
 				
-			# Сохранение описания аккаунтов.
-			self.__SaveAccounts()
+				# Сохранение описания аккаунтов.
+				self.__SaveAccounts()
+				
 			# Переключение состояния.
 			IsRemoved = True
 			
-		except:
-			pass
+		except:	pass
 		
 		return IsRemoved
 	
