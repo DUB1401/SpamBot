@@ -252,6 +252,7 @@ class CLI:
 			# Вывод в консоль: описание.
 			print("ID:", Account["id"])
 			print("Phone number:", Account["phone-number"])
+			print("Mails sended:", Account["sended"])
 			print("Mute: ", end = "")
 			
 			# Если аккаунт имеет мут.

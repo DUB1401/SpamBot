@@ -2,7 +2,7 @@
 	"token": "",
 	"premium": false,
 	"password": "1234",
-	"message": "",
+	"message": "Здравствуйте! Вы получили письмо от SpamBot.",
 	"email": "",
 	"port": 5555,
 	"delay": 1,

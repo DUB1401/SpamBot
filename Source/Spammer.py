@@ -169,6 +169,13 @@ class Spammer:
 		# Хэш устройства авторизации.
 		self.__Hash = None
 		
+	# Выполняет инкремент количества отправленных сообщений.
+	def addSended(self, AccountID: int):
+		# Запрос аккаунта.
+		Account = self.getAccountByID(AccountID)
+		# Обновление количества отправленных сообщений.
+		self.updateAccount(AccountID, "sended", Account["sended"] + 1)
+		
 	# Проверяет, замучен ли аккаунт.
 	def checkAccountMute(self, AccountID: int, Logging: bool = True) -> bool:
 		# Результат отправки сообщения.
@@ -308,6 +315,7 @@ class Spammer:
 					"premium": UserStruct.premium,
 					"api-id": ApiID,
 					"api-hash": ApiHash,
+					"sended": 0,
 					"mute": False,
 					"ban": False,
 					"active": True,
@@ -389,6 +397,8 @@ class Spammer:
 				
 				# Изменение кода исполнения.
 				ExecutionCode = 0
+				# Инкремент количества отправленных сообщений.
+				self.addSended(CurrentAccountID)
 				# Вывод в консоль: успешная отправка.
 				if Logging: print(f"[INFO] User: {Username}. Mailed.")
 				
@@ -410,7 +420,7 @@ class Spammer:
 				# Изменение кода исполнения.
 				ExecutionCode = 3
 				# Вывод в консоль: неспецифическая ошибка.
-				if Logging: StyledPrinter(f"[WARNING] Cann't send message: {Username}. Marked as incative.", text_color = Styles.Colors.Yellow)
+				if Logging: StyledPrinter(f"[WARNING] Cann't send message: {Username}.", text_color = Styles.Colors.Yellow)
 				
 			except FloodWaitError as ExceptionData:
 				# Изменение кода исполнения.
