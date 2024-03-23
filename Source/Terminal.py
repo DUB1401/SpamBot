@@ -16,6 +16,7 @@ HELP_COMMANDS = [
 	"exit".ljust(16) + "Exit app.",	
 	"help".ljust(16) + "Types help data.",	
 	"list".ljust(16) + "Types list of registered accounts.",
+	"move".ljust(16) + "Assigns new ID to account.",
 	"reconnect".ljust(16) + "Recconect account to app.",
 	"register".ljust(16) + "Register new Telegram account in app.",
 	"send".ljust(16) + "Sends message to @username or by user link.",
@@ -38,6 +39,10 @@ HELP_ARGUMENTS = {
 	},
 	"list": {
 		"SORT": "Flags of accounts parameters for sorting: active, ban, mute."
+	},
+	"move": {
+		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database.",
+		"NEW_ACCOUNT_ID*": "New ID of Telegram account.",
 	},
 	"reconnect": {
 		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database."
@@ -291,6 +296,14 @@ class CLI:
 			# Вывод в консоль: разделитель.
 			print("==============================")
 			
+	# Назначение нового ID для аккаунта.
+	def __move(self, Command: list[str]):
+		# Переназначение ID.
+		Result = self.__Spammer.move(int(Command[1]), int(Command[2]))
+		# Вывод типов ошибок.
+		if Result == -1: StyledPrinter("[ERROR] Account with this ID wasn't found.", text_color = Styles.Colors.Red)
+		if Result == -2: StyledPrinter("[ERROR] Required ID is already occupied.", text_color = Styles.Colors.Red)
+		
 	# Переподключение аккаунта.
 	def __reconnect(self, Command: list[str]):
 		# Данные аккаунта.
@@ -317,9 +330,9 @@ class CLI:
 		if Result == -2: Result = self.__Spammer.register(Command[1], Command[2], Command[3], GetDigits(self.__input("If you use Telegram, paste any non-number characters between code numbers.\n\nEnter security code: ")))
 
 		# Если регистрация успешна.
-		if Result == 0:
+		if Result > 0:
 			# Вывод в консоль: аккаунт успешно добавлен.
-			print("Telegram account successfully registered in the app.")
+			print(f"Telegram account successfully registered in the app with ID {Result}.")
 						
 		elif Result == -1:
 			# Вывод в консоль: не удалось добавить аккаунт.
@@ -449,6 +462,9 @@ class CLI:
 				
 				# Список аккаунтов.
 				case "list": self.__list(Command)
+				
+				# Назначение нового ID для аккаунта.
+				case "move": self.__move(Command)
 				
 				# Регистрация аккаунта.
 				case "register": self.__register(Command)

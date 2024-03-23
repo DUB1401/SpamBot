@@ -266,11 +266,40 @@ class Spammer:
 				break
 		
 		return Description
+	
+	# Назначает новый ID аккаунту.
+	def move(self, OriginalID: int, NewID: int) -> int:
+		# Список всех аккаунтов.
+		AccountsID = self.__GetAccountsID()
+		# Код выполнения.
+		ResultCode = False
+		
+		# Если аккаунт с таким ID не существует.
+		if OriginalID not in AccountsID:
+			# Изменение кода.
+			ResultCode = -1
+		
+		# Если аккаунт с новым ID уже существует.
+		elif NewID in AccountsID:
+			# Изменение кода.
+			ResultCode = -2
+			
+		else:
+			# Переименование папки сессии.
+			os.rename(f"Data/Sessions/{OriginalID}", f"Data/Sessions/{NewID}")
+			# Изменение ID в данных аккаунта.
+			self.updateAccount(OriginalID, "id", NewID)
+			# Изменение кода.
+			ResultCode = 0
+		
+		return ResultCode
 
 	# Регистрирует новый аккаунт.
 	def register(self, PhoneNumber: str, ApiID: int | str, ApiHash: str, Code: str | None = None, AccountID: int | None = None) -> int:
 		# Состояние: авторизован ли пользователь.
 		IsAuth = -1
+		# Если номер телефона не начинается с плюса, добавить его.
+		if not PhoneNumber.startswith("+"): PhoneNumber = "+" + PhoneNumber
 		
 		try:
 			# Если клиент не инициализирован.
@@ -293,8 +322,6 @@ class Spammer:
 				IsAuth = -2
 				
 			else:
-				# Переключение состояния.
-				IsAuth = 0
 				# ID аккаунта.
 				ID = self.__GenerateID() if AccountID == None else AccountID
 				# Структура пользователя.
@@ -332,6 +359,8 @@ class Spammer:
 				self.__Client.disconnect()
 				self.__Client = None
 				self.hash = None
+				# Переключение состояния.
+				IsAuth = ID
 				
 		except Exception as ExceptionData:
 			# Отключение и обнуление клиента и хэша.
@@ -342,7 +371,7 @@ class Spammer:
 			StyledPrinter("[ERROR] Unable to register account during exception: ", text_color = Styles.Colors.Red, end = False)
 			print(f" \"{ExceptionData}\".".strip())
 			# Переключение состояния.
-			IsAuth = 1
+			IsAuth = -3
 			
 		return IsAuth
 	
