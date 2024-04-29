@@ -5,6 +5,7 @@ from dublib.Methods import Cls
 from io import StringIO
 
 import datetime
+import readline
 import sys
 import zmq
 

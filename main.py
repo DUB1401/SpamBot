@@ -1,4 +1,4 @@
-from dublib.Methods import CheckPythonMinimalVersion, Cls, MakeRootDirectories, ReadJSON, RemoveFolderContent, RemoveRecurringSubstrings, ReplaceRegexSubstring
+from dublib.Methods import CheckPythonMinimalVersion, Cls, MakeRootDirectories, ReadJSON, RemoveFolderContent, RemoveRecurringSubstrings
 from dublib.Terminalyzer import ArgumentsTypes, Command, Terminalyzer
 from Source.BotManager import BotManager, ExpectedMessageTypes
 from Source.Terminal import CLI, TerminalClinet
@@ -6,6 +6,7 @@ from Source.Functions import *
 from telebot import types
 from time import sleep
 
+import readline
 import textwrap
 import telebot
 
@@ -18,7 +19,7 @@ CheckPythonMinimalVersion(3, 10)
 # Создание папок в корневой директории.
 MakeRootDirectories(["Attachments", "Data/Sessions"])
 # Глобальные определения.
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 
 #==========================================================================================#
 # >>>>> ЧТЕНИЕ НАСТРОЕК <<<<< #
@@ -37,14 +38,14 @@ if type(Settings["token"]) != str or Settings["token"].strip() == "": raise Exce
 CommandsList = list()
 
 # Создание команды: execute.
-COM_execute = Command("execute")
-COM_execute.add_argument(ArgumentsTypes.All, important = True)
-CommandsList.append(COM_execute)
+Com = Command("execute")
+Com.add_argument(ArgumentsTypes.All, important = True)
+CommandsList.append(Com)
 
 # Создание команды: run.
-COM_run = Command("run")
-COM_run.add_flag_position(["s", "c", "server", "client"])
-CommandsList.append(COM_run)
+Com = Command("run")
+Com.add_flag_position(["s", "c", "server", "client"])
+CommandsList.append(Com)
 
 # Инициализация обработчика консольных аргументов.
 CAC = Terminalyzer()
@@ -214,7 +215,7 @@ else:
 					# Если получен простой ответ.
 					if Response.status_code == 0:
 						# Очистка стилей.
-						Output = ReplaceRegexSubstring(Response.text, "\[\d{1,2}m", "")
+						Output = re.sub("\[\d{1,2}m", "", Response.text)
 						# Удаление разделителей.
 						Output = Output.replace("==============================", "")
 					
