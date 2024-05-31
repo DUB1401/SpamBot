@@ -1,6 +1,6 @@
 # Скрипт инициализации сервиса SpamBot.
 #==========================================================================================#
-# {Application Directory} – путь к директории со скриптом.
+# {Application Directory} – путь к директории с исполняемым файлом.
 
 [Unit]
 Description=SpamBot
@@ -11,7 +11,7 @@ Type=simple
 User=root
 Group=root
 WorkingDirectory={Application Directory}
-ExecStart=/usr/bin/python3 main.py
+ExecStart=source .venv/bin/activate && python3 main.py
 Restart=on-failure
 RestartSec=60
 
