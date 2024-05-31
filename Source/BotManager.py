@@ -128,14 +128,27 @@ class BotManager:
 			for Index in range(0, len(Files)):
 				# Буфер сообщения.
 				MessageBufer = self.__Settings["message"] if self.__Settings["message"] != "" else None
-				# Дополнить вложения файлом.
-				Attachments.append(
-					types.InputMediaPhoto(
-						open("Attachments/" + Files[Index], "rb"), 
-						caption = MessageBufer if Index == 0 else "",
-						parse_mode = "HTML"
+
+				# Если вложение является видео.
+				if Files[Index].endswith("mp4") or Files[Index].endswith("webm"):
+					# Дополнить вложения файлом.
+					Attachments.append(
+						types.InputMediaVideo(
+							open("Attachments/" + Files[Index], "rb"), 
+							caption = MessageBufer if Index == 0 else "",
+							parse_mode = "HTML"
+						)
 					)
-				)
+
+				else:
+					# Дополнить вложения файлом.
+					Attachments.append(
+						types.InputMediaPhoto(
+							open("Attachments/" + Files[Index], "rb"), 
+							caption = MessageBufer if Index == 0 else "",
+							parse_mode = "HTML"
+						)
+					)
 				
 			try:
 				# Отправка медиа группы: приветствие нового подписчика.
