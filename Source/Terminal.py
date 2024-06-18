@@ -1,7 +1,7 @@
 from dublib.StyledPrinter import StyledPrinter, Styles, TextStyler
 from Source.Functions import GetDigits
 from Source.Spammer import Spammer
-from dublib.Methods import Cls
+from dublib.Methods import Cls, ReadJSON
 from io import StringIO
 
 import datetime
@@ -18,6 +18,7 @@ HELP_COMMANDS = [
 	"help".ljust(16) + "Types help data.",	
 	"list".ljust(16) + "Types list of registered accounts.",
 	"move".ljust(16) + "Assigns new ID to account.",
+	"progress".ljust(16) + "Prints mailing progress on current targets..",	
 	"reconnect".ljust(16) + "Recconect account to app.",
 	"register".ljust(16) + "Register new Telegram account in app.",
 	"send".ljust(16) + "Sends message to @username or by user link.",
@@ -305,6 +306,33 @@ class CLI:
 		if Result == -1: StyledPrinter("[ERROR] Account with this ID wasn't found.", text_color = Styles.Colors.Red)
 		if Result == -2: StyledPrinter("[ERROR] Required ID is already occupied.", text_color = Styles.Colors.Red)
 		
+	# Выводит прогресс отправки.
+	def __progress(self):
+		# Чтение целей.
+		Targets = ReadJSON("Data/Targets.json")
+
+		# Если есть цели для рассылки.
+		if len(Targets["targets"]):
+			# Статистика.
+			Total = 0
+			Mailed = 0
+			Percents = None
+
+			# Для каждой цели.
+			for Target in Targets["targets"]:
+				# Подсчёт статистических данных.
+				Total += 1
+				if Target["mailed"]: Mailed += 1
+
+			# Получение процента прогресса.
+			Percents = round(float(Mailed) / float(Total) * 100.0, 2)
+			# Вывод в консоль: прогресс.
+			print(f"Progress for current targets: {Mailed} / {Total} ({Percents}%).")
+
+		else:
+			# Вывод в консоль: целей нет.
+			print("No targets for mailing.")
+
 	# Переподключение аккаунта.
 	def __reconnect(self, Command: list[str]):
 		# Данные аккаунта.
@@ -466,6 +494,9 @@ class CLI:
 				
 				# Назначение нового ID для аккаунта.
 				case "move": self.__move(Command)
+
+				# Выводит прогресс отправки.
+				case "progress": self.__progress()
 				
 				# Регистрация аккаунта.
 				case "register": self.__register(Command)
