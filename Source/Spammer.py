@@ -1,4 +1,4 @@
-from telethon.errors import AuthKeyUnregisteredError, FloodWaitError, PeerFloodError, PhoneNumberBannedError, UserDeactivatedBanError
+from telethon.errors import AuthKeyUnregisteredError, FloodWaitError, PeerFloodError, PhoneNumberBannedError, SessionRevokedError, UserDeactivatedBanError, RPCError
 from dublib.Methods import ReadJSON, RemoveFolderContent, WriteJSON
 from telethon.tl.functions.contacts import ImportContactsRequest
 from dublib.StyledPrinter import StyledPrinter, Styles
@@ -178,27 +178,33 @@ class Spammer:
 		
 	# Проверяет, замучен ли аккаунт.
 	def checkAccountMute(self, AccountID: int, Logging: bool = True) -> bool:
+		# Получение аккаунта.
+		Account = self.getAccountByID(AccountID)
+		# Если аккаунт не имеет комментария, считать мут снятым.
+		if Account["mute"] and not Account["comment"]: return False
 		# Результат отправки сообщения.
 		Result = None
 		# Статус мута.
 		MuteStatus = True
 		# Дата размута.
 		UnmuteComment = self.__GetDate(AccountID)
-		
+		# Состояние: прошла ли дата мута.
+		IsDateOut = CompareDates(datetime.datetime.now(datetime.timezone.utc), UnmuteComment)
+
 		# Если нет комментария о муте.
 		if UnmuteComment == None:
 			# Отправка сообщения спам-боту.
 			Result = self.send("@SpamBot", AccountID, Text = "/start", Logging = False, Unload = False, Unmute = False)
 			
 		# Если есть комментарий о муте и дата мута не истекла.
-		elif CompareDates(datetime.datetime.utcnow(), UnmuteComment) == False and Logging == False:
+		elif IsDateOut == False and Logging == False:
 			# Преобразование часового пояса.
 			UnmuteComment = str(UnmuteComment).replace(":00+00:00", " UTC")
 			# Вывод в консоль: на аккаунте мут.
 			print(f"Account muted until {UnmuteComment}.")
 			
 		# Если дата мута исткела.
-		elif CompareDates(datetime.datetime.now(), UnmuteComment) == True:
+		elif IsDateOut:
 			# Удаление даты и статуса мута.
 			self.updateAccount(AccountID, "comment", None)
 			self.updateAccount(AccountID, "mute", False)
@@ -384,7 +390,7 @@ class Spammer:
 				
 		# Пока код выполнения не в диапазоне.
 		while ExecutionCode not in [0, 1, 3]:
-			
+
 			# Если включено автоматическое снятие мута.
 			if Unmute == True:
 			
@@ -483,7 +489,23 @@ class Spammer:
 					self.sendUnbanRequest(CurrentAccountID)
 					# Вывод в консоль: запрос на снятие бана отправлен.
 					if Logging: print("[INFO] Unban request sended.")
+
+			except SessionRevokedError:
+				# Изменение кода исполнения.
+				ExecutionCode = 7
+				# Вывод в консоль: убиты все сессии.
+				if Logging: StyledPrinter(f"[WARNING] Account {CurrentAccountID} terminated all sessions.", text_color = Styles.Colors.Yellow)
+				# Блокировка аккаунта.
+				self.updateAccount(CurrentAccountID, "active", False)
 		
+			except RPCError:
+				# Изменение кода исполнения.
+				ExecutionCode = 0
+				# Вывод в консоль: подписка не даёт отправить сообщение.
+				if Logging: StyledPrinter(f"[WARNING] User {Username} subscription limits. Marked as mailed. Skipped.", text_color = Styles.Colors.Yellow)
+				# Блокировка аккаунта.
+				self.updateAccount(CurrentAccountID, "active", False)
+
 			except Exception as ExceptionData:
 				# Вывод в консоль: исключение.
 				print(ExceptionData)
