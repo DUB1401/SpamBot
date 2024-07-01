@@ -5,6 +5,7 @@ from dublib.StyledPrinter import StyledPrinter, Styles
 from telethon.types import InputPhoneContact
 from Source.Functions import CompareDates
 from telethon.sync import TelegramClient
+from datetime import timezone
 from time import sleep
 
 import dateparser
@@ -178,18 +179,16 @@ class Spammer:
 		
 	# Проверяет, замучен ли аккаунт.
 	def checkAccountMute(self, AccountID: int, Logging: bool = True) -> bool:
-		# Получение аккаунта.
-		Account = self.getAccountByID(AccountID)
-		# Если аккаунт не имеет комментария, считать мут снятым.
-		if Account["mute"] and not Account["comment"]: return False
 		# Результат отправки сообщения.
 		Result = None
 		# Статус мута.
 		MuteStatus = True
+		# Состояние: прошла ли дата мута.
+		IsDateOut = False
 		# Дата размута.
 		UnmuteComment = self.__GetDate(AccountID)
-		# Состояние: прошла ли дата мута.
-		IsDateOut = CompareDates(datetime.datetime.now(datetime.timezone.utc), UnmuteComment)
+		# Определение прохода даты мута.
+		if UnmuteComment: IsDateOut = CompareDates(datetime.datetime.now(datetime.timezone.utc), UnmuteComment)
 
 		# Если нет комментария о муте.
 		if UnmuteComment == None:
@@ -229,11 +228,13 @@ class Spammer:
 					LastParagraph = Text.split("\n\n")[-1]
 					# Дата размута.
 					UnmuteDate = LastParagraph.split("UTC")[0]
+					# Если аккаунт замучен навсегда, заменить комментарий о муте.
+					if "While the account is limited, you will not be able to send messages" in Text: UnmuteDate = "forever"
 					# Вывод в консоль: на аккаунте мут.
 					if Logging == False: print(f"Account muted until {UnmuteDate} UTC.")
 					# Обновление статуса аккаунта.
 					self.updateAccount(AccountID, "mute", True, Autosave = False)
-					self.updateAccount(AccountID, "comment", f"mute={UnmuteDate}UTC")
+					self.updateAccount(AccountID, "comment", f"mute={UnmuteDate}")
 				
 				else:
 					# Вывод в консоль: на аккаунте нет мута.
@@ -446,9 +447,9 @@ class Spammer:
 			except PeerFloodError:
 				# Изменение кода исполнения.
 				ExecutionCode = 2
-				# Вывод в консоль: неспецифическая ошибка.
+				# Вывод в консоль: выдан мут.
 				if Logging: StyledPrinter(f"[ERROR] Account {CurrentAccountID} muted.", text_color = Styles.Colors.Red)
-				# Проверка мута аккаунта.
+				# Постановка мута на аккаунт.
 				self.updateAccount(CurrentAccountID, "mute", True)
 				
 			except ValueError as ExceptionData:
@@ -463,9 +464,17 @@ class Spammer:
 				# Количество секунд ожидания.
 				Seconds = int(''.join(filter(str.isdigit, str(ExceptionData))))
 				# Вывод в консоль: выжидание запрошенного Telegram интервала.
-				if Logging: StyledPrinter(f"[WARNING] Waiting for {Seconds} seconds...", text_color = Styles.Colors.Yellow)
-				# Выжидание интервала.
-				sleep(Seconds)
+				# StyledPrinter(f"[WARNING] Waiting for {Seconds} seconds...", text_color = Styles.Colors.Yellow)
+				# Получение текущей даты и вычисление даты размута.
+				CurrentDate = datetime.datetime.now(timezone.utc)
+				UnmuteDate = CurrentDate + datetime.timedelta(seconds = Seconds)
+				# Составление комментария о муте.
+				MuteComment = "mute=" + str(UnmuteDate)
+				# Постановка мута на аккаунт.
+				self.updateAccount(CurrentAccountID, "mute", True)
+				self.updateAccount(CurrentAccountID, "comment", MuteComment)
+				# Вывод в консоль: выдан мут.
+				if Logging: StyledPrinter(f"[ERROR] Account {CurrentAccountID} muted.", text_color = Styles.Colors.Red)
 				
 			except AuthKeyUnregisteredError as ExceptionData:
 				# Изменение кода исполнения.
@@ -484,11 +493,18 @@ class Spammer:
 				self.updateAccount(CurrentAccountID, "ban", True)
 				
 				# Если указана почта для отправки запроса о снятии бана.
-				if self.__Settings["email"] not in ["", None]:
+				if self.__Settings["email"]:
 					# Отправка запроса на снятие бана.
 					self.sendUnbanRequest(CurrentAccountID)
 					# Вывод в консоль: запрос на снятие бана отправлен.
 					if Logging: print("[INFO] Unban request sended.")
+
+				# Если аккаунт забанен и настройками указано удаление.
+				if self.__Settings["remove-banned-accounts"]:
+					# Удаление аккаунта.
+					self.unregister(CurrentAccountID)
+					# Вывод в консоль: аккаунт удалён из системы.
+					StyledPrinter(f"[WARNING] Account with ID {CurrentAccountID} automatically unregistered.", text_color = Styles.Colors.Yellow)
 
 			except SessionRevokedError:
 				# Изменение кода исполнения.
@@ -516,13 +532,6 @@ class Spammer:
 			if ExecutionCode != 1 and Unload == True: self.__UnloadAccount(CurrentAccountID)
 			# Завершение цикла при проверке мута.
 			if Unmute == False: break
-			
-		# Если аккаунт забанен и настройками указано удаление.
-		if ExecutionCode == 6 and self.__Settings["remove-banned-accounts"] == True:
-			# Удаление аккаунта.
-			self.unregister(CurrentAccountID)
-			# Вывод в консоль: аккаунт удалён из системы.
-			StyledPrinter(f"[WARNING] Account with ID {AccountID} automatically unregistered.", text_color = Styles.Colors.Yellow)
 			
 		return ExecutionCode
 	

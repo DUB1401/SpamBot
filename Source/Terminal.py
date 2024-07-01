@@ -40,7 +40,7 @@ HELP_ARGUMENTS = {
 		"COMMAND": "Name of command, in which you need help."
 	},
 	"list": {
-		"SORT": "Flags of accounts parameters for sorting: active, ban, mute."
+		"SORT": "Flags of accounts parameters for sorting: active, ban, mute, inactive, unmuted"
 	},
 	"move": {
 		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database.",
@@ -235,12 +235,32 @@ class CLI:
 			print("Sorted by: " + TextStyler(Command[1], text_color = Styles.Colors.Yellow))
 			# Создание буфера.
 			Bufer = list()
+
+			# Если нужны неактивные аккаунты.
+			if Command[1] == "inactive":
+
+				# Для каждого аккаунта.
+				for Account in Accounts:
+					
+					# Если аккаунт обладает свойством, записать его в буфер.
+					if not Account["active"]: Bufer.append(Account)
+
+			# Если нужны аккаунты без мута
+			elif Command[1] == "unmuted":
+
+				# Для каждого аккаунта.
+				for Account in Accounts:
+					
+					# Если аккаунт обладает свойством, записать его в буфер.
+					if not Account["mute"]: Bufer.append(Account)
+
+			else:
 			
-			# Для каждого аккаунта.
-			for Account in Accounts:
-				
-				# Если аккаунт обладает свойством, записать его в буфер.
-				if Account[Command[1]] == True: Bufer.append(Account)
+				# Для каждого аккаунта.
+				for Account in Accounts:
+					
+					# Если аккаунт обладает свойством, записать его в буфер.
+					if Account[Command[1]] == True: Bufer.append(Account)
 				
 			# Перезапись списка аккаунтов.
 			Accounts = Bufer
@@ -265,7 +285,9 @@ class CLI:
 			# Если аккаунт имеет мут.
 			if Account["mute"] == True: 
 				# Вывод статуса мута.
-				StyledPrinter("True", text_color = Styles.Colors.Red)
+				StyledPrinter("True", text_color = Styles.Colors.Red, end = False)
+				# Вывод даты снятия мута.
+				print(" (" + str(Account["comment"]).replace("mute=", "") + ")")
 				
 			else:
 				# Вывод статуса мута.
