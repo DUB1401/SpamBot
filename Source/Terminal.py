@@ -40,7 +40,7 @@ HELP_ARGUMENTS = {
 		"COMMAND": "Name of command, in which you need help."
 	},
 	"list": {
-		"SORT": "Flags of accounts parameters for sorting: active, ban, mute, inactive, unmuted"
+		"SORT": "Flags of accounts parameters for sorting: active, ban, mute, inactive, unmuted, fm."
 	},
 	"move": {
 		"ACCOUNT_ID*": "ID of Telegram account in SpamBot database.",
@@ -253,6 +253,15 @@ class CLI:
 					
 					# Если аккаунт обладает свойством, записать его в буфер.
 					if not Account["mute"]: Bufer.append(Account)
+
+			# Если нужны аккаунты, навечно замученные.
+			elif "fm" in Command:
+
+				# Для каждого аккаунта.
+				for Account in Accounts:
+					
+					# Если аккаунт навечно замучен, записать его в буфер.
+					if Account["mute"] and Account["comment"] == "mute=forever": Bufer.append(Account)
 
 			else:
 			
