@@ -1,15 +1,5 @@
 {
 	"token": "",
-	"premium": false,
 	"password": "1234",
-	"message": "Здравствуйте! Вы получили письмо от SpamBot.",
-	"email": "",
-	"port": 5555,
-	"delay": 1,
-	"remove-banned-accounts": false,
-	"statuses": {
-		"collect-media": false,
-		"targeting": false,
-		"terminal": false
-	}
+	"delay": 1
 }
