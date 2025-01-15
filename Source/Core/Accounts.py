@@ -1,5 +1,5 @@
 from telethon.errors import AuthKeyUnregisteredError, FloodWaitError, PeerFloodError, PhoneNumberBannedError, SessionRevokedError, UserDeactivatedBanError, UserNotParticipantError, RPCError
-from telethon.tl.functions.channels import GetParticipantRequest, JoinChannelRequest, LeaveChannelRequest
+from telethon.tl.functions.channels import JoinChannelRequest, LeaveChannelRequest
 from dublib.Methods.Filesystem import ReadJSON, WriteJSON
 from dublib.TelebotUtils.Users import UserData
 from dublib.Engine.Bus import ExecutionStatus
@@ -65,6 +65,12 @@ class Account:
 		return self.__Data["premium"]
 
 	@property
+	def owner(self) -> int:
+		"""ID владельца аккаунта."""
+
+		return self.__Data["owner"]
+
+	@property
 	def phone_number(self) -> str:
 		"""Номер телефона аккаунта."""
 		
@@ -75,6 +81,12 @@ class Account:
 		"""Количество отправленных с этого аккаунта сообщений с момента регистрации в системе."""
 
 		return self.__Data["sended"]
+	
+	@property
+	def shared(self) -> tuple[int]:
+		"""Последовательность ID пользователей, которым разрешена работа с аккаунтом."""
+
+		return tuple(self.__Data["shared"])
 
 	#==========================================================================================#
 	# >>>>> ДОПОЛНИТЕЛЬНЫЕ СВОЙСТВА <<<<< #
@@ -121,6 +133,8 @@ class Account:
 		"""Считывает данные аккаунта или создаёт новый файл JSON."""
 
 		Data = {
+			"owner": None,
+			"shared_with": [],
 			"phone_number": None,
 			"premium": False,
 			"api_id": None,
@@ -159,21 +173,6 @@ class Account:
 
 		self.__Client: TelegramClient = None
 
-	def delete(self):
-		"""Удаляет данные аккаунта."""
-
-		self.close_session()
-		shutil.rmtree(self.__Path)
-
-	def enable(self, status: bool):
-		"""
-		Задаёт разрешение для использования аккаунта.
-			status – статус разрешения.
-		"""
-
-		self.__Data["enabled"] = status
-		self.save()
-
 	def change_id(self, new_id: int):
 		"""
 		Изменяет ID аккаунта в системе.
@@ -186,25 +185,49 @@ class Account:
 		os.rename(self.__Path, NewPath)
 		self.__Path = NewPath
 
+	def check_access(self, user_id: int):
+		"""
+		Проверяет, доступен ли данный аккаунт пользователю.
+			user_id – ID пользователя.
+		"""
+
+		return user_id == self.__Data["owner"] or user_id in self.__Data["shared_with"]
+
 	def close_session(self):
 		"""Закрывает сессию."""
 
 		if self.__Client: self.__Client.disconnect()
 		self.__Client = None
 
+	def delete(self):
+		"""Удаляет данные аккаунта."""
+
+		self.close_session()
+		shutil.rmtree(self.__Path)
+
+	def deny(self, user_id: int):
+		"""
+		Запрещает использование аккаунта другому пользователю.
+			user_id – ID пользователя.
+		"""
+
+		if user_id in self.__Data["shared_with"]: 
+			self.__Data["shared_with"].remove(user_id)
+			self.save()
+
+	def enable(self, status: bool):
+		"""
+		Задаёт разрешение для использования аккаунта.
+			status – статус разрешения.
+		"""
+
+		self.__Data["enabled"] = status
+		self.save()
+
 	def get_data(self) -> dict:
 		"""Возвращает копию словаря данных аккаунта."""
 
 		return self.__Data.copy()
-
-	def start_session(self):
-		"""Запускает сессию."""
-
-		try:
-			self.__Client = TelegramClient(f"{self.__Path}/telethon.session", self.api_id, self.api_hash, system_version = "4.16.30-vxCUSTOM")
-			self.__Client.connect()
-
-		except: pass
 
 	def register(self, phone_number: str, api_id: int, api_hash: str) -> bool:
 		"""
@@ -228,14 +251,42 @@ class Account:
 		self.close_session()
 
 		return IsRegistered
-
+	
 	def save(self):
 		"""Сохраняет данные аккаунта."""
 
 		WriteJSON(f"{self.__Path}/data.json", self.__Data)
+	
+	def set_owner(self, owner: int):
+		"""
+		Задаёт владельца аккаунта.
+			owner – ID владельца.
+		"""
+
+		self.__Data["owner"] = owner
+		self.save()
+
+	def share(self, user_id: int):
+		"""
+		Разрешает использование аккаунта другому пользователю.
+			user_id – ID пользователя.
+		"""
+
+		if user_id not in self.__Data["shared_with"]: 
+			self.__Data["shared_with"].append(user_id)
+			self.save()
+
+	def start_session(self):
+		"""Запускает сессию."""
+
+		try:
+			self.__Client = TelegramClient(f"{self.__Path}/telethon.session", self.api_id, self.api_hash, system_version = "4.16.30-vxCUSTOM")
+			self.__Client.connect()
+
+		except: pass
 
 	#==========================================================================================#
-	# >>>>> ДОПОЛНИТЕЛЬНЫЕ ПУБЛИЧНЫЕ МЕТОДЫ <<<<< #
+	# >>>>> МЕТОДЫ ОБРАЩЕНИЯ К TELEGRAM <<<<< #
 	#==========================================================================================#
 
 	def check_mute(self) -> ExecutionStatus:
@@ -418,14 +469,24 @@ class Manager:
 
 		self.__LoadAccountsData()
 
-	def delete_account(self, account_id: int):
+	def delete_account(self, account_id: int) -> ExecutionStatus:
 		"""
 		Удаляет аккаунт из системы.
 			account_id – ID аккаунта.
 		"""
 
-		self.__Accounts[account_id].delete()
-		del self.__Accounts[account_id]
+		Status = ExecutionStatus()
+
+		if self.__User.id == self.__Accounts[account_id].owner:
+			self.__Accounts[account_id].delete()
+			del self.__Accounts[account_id]
+			Status.value = True
+
+		else:
+			Status.push_error(f"Недостаточно прав для удаления аккаунта #{account_id}.")
+			Status.value = False
+
+		return Status
 
 	def get_account(self, account_id: int) -> Account | None:
 		"""
@@ -434,13 +495,22 @@ class Manager:
 		"""
 		
 		return self.__Accounts[account_id]
+	
+	def get_user_accounts(self, user_id: int) -> tuple[Account]:
+		"""
+		Возвращает последовательность аккаунтов, к которым у пользователя есть доступ.
+			user_id – ID пользователя.
+		"""
+		
+		return tuple(filter(lambda CurrentAccount: CurrentAccount.check_access(user_id), self.__Accounts.values()))
 
-	def register(self, phone_number: str, api_id: int, api_hash: str) -> ExecutionStatus:
+	def register(self, phone_number: str, api_id: int, api_hash: str, owner: int) -> ExecutionStatus:
 		"""
 		Регистрирует новый аккаунт в системе SpamBot.
 			phone_number – номер телефона;\n
 			api_id – ID API аккаунта;\n
-			api_hash – хэш API аккаунта.
+			api_hash – хэш API аккаунта;\n
+			owner – ID владельца.
 		"""
 
 		Status = ExecutionStatus()
@@ -453,6 +523,9 @@ class Manager:
 
 		NewID = self.__GenerateID()
 		self.__Accounts[NewID] = Account(NewID)
-		if self.__Accounts[NewID].register(phone_number, api_id, api_hash): Status.value = NewID
+		
+		if self.__Accounts[NewID].register(phone_number, api_id, api_hash):
+			self.__Accounts[NewID].set_owner(owner)
+			Status.value = NewID
 		
 		return Status

@@ -1,17 +1,18 @@
 from Source.Core.Accounts import Account, Manager
 from Source.Core.Mailing import Mailer
 
+from dublib.Exceptions.CLI import InvalidParameterType, NotEnoughParameters, TooManyParameters
 from dublib.CLI.Terminalyzer import Command, ParametersTypes, ParsedCommandData, Terminalyzer
-from dublib.Exceptions.CLI import NotEnoughParameters
 from dublib.CLI.TextStyler import Colors, Decorations, TextStyler
 from dublib.TelebotUtils.Users import UserData, UsersManager
 from dublib.Methods.Filesystem import WriteJSON
 from dublib.Engine.Bus import ExecutionStatus
 from dublib.Methods.System import Clear
+from dublib.CLI import readline
+
 from typing import Iterable
 from time import sleep
 
-import readline
 import random
 import shlex
 
@@ -34,6 +35,11 @@ class Interaction:
 		CommandsList.append(Com)
 
 		Com = Command("delete", "Удаляет аккаунт из системы.")
+		CommandsList.append(Com)
+
+		Com = Command("deny", "Отзывает доступ к аккаунту у другого пользователя.")
+		ComPos = Com.create_position("USER", "Идентиифкатор пользователя.")
+		ComPos.add_argument(ParametersTypes.Number, "ID пользователя.")
 		CommandsList.append(Com)
 
 		Com = Command("disable", "Помечает аккаунт как запрещённый к использованию.")
@@ -62,6 +68,11 @@ class Interaction:
 		ComPos = Com.create_position("TERGET", "Цель для отправки сообщения.")
 		ComPos.add_argument(description = "Номер телефона или ник пользователя.")
 		CommandsList.append(Com)
+
+		Com = Command("share", "Делится аккаунтом с другим пользователем системы.")
+		ComPos = Com.create_position("USER", "Идентиифкатор пользователя.")
+		ComPos.add_argument(ParametersTypes.Number, "ID пользователя.")
+		CommandsList.append(Com)
 		
 		return CommandsList
 
@@ -88,10 +99,12 @@ class Interaction:
 
 		Com = Command("list", "Выводит список аккаунтов.")
 		ComPos = Com.create_position("SELECTOR", "Способ выборки.")
+		ComPos.add_flag("a", "Только те, к которым вы имеете доступ.")
 		ComPos.add_flag("e", "Только включённые.")
 		ComPos.add_flag("b", "Только забаненные.")
 		ComPos.add_flag("m", "Только имеющие мут.")
 		ComPos.add_flag("d", "Только отключённые.")
+		ComPos.add_flag("w", "Только готовые к работе.")
 		CommandsList.append(Com)
 
 		Com = Command("register", "Добавляет аккаунт в систему.")
@@ -107,10 +120,12 @@ class Interaction:
 		ComPos = Com.create_position("RANGE", "Диапазон выборки.")
 		ComPos.add_argument(description = "Диапазон ID аккаунтов в формате \"1,4-7,9\". Для случайной выборки \"%5\", для выбора всех \"*\".")
 		ComPos = Com.create_position("FILTERS", "Фильтры аккаунтов.")
+		ComPos.add_flag("a", "Только те, к которым вы имеете доступ.")
 		ComPos.add_flag("e", "Только включённые.")
 		ComPos.add_flag("b", "Только забаненные.")
 		ComPos.add_flag("m", "Только имеющие мут.")
 		ComPos.add_flag("d", "Только отключённые.")
+		ComPos.add_flag("w", "Только готовые к работе.")
 		CommandsList.append(Com)
 
 		return CommandsList + self.accounts_commands
@@ -154,6 +169,30 @@ class Interaction:
 
 		return Status
 
+	def __CheckUser(self, user_id: int | str) -> ExecutionStatus:
+		"""
+		Проверяет, есть ли пользователь в системе и не передан ли ID текущего пользователя.
+			user_id – ID пользователя.
+		"""
+
+		user_id = int(user_id)
+		Status = ExecutionStatus()
+		
+		try:
+			if user_id == self.__User.id: raise ValueError
+			self.__UsersManager.get_user(user_id)
+			Status.set_value(True)
+
+		except KeyError:
+			Status.push_error(f"Пользователь {user_id} не найден в системе.")
+			Status.set_value(False)
+
+		except ValueError:
+			Status.push_error("Вы являетесь владельцем аккаунта.")
+			Status.set_value(False)
+		
+		return Status
+
 	def __GenerateSelector(self) -> str:
 		"""Генерирует селектор CLI."""
 
@@ -171,10 +210,12 @@ class Interaction:
 			accounts – последовательность аккаунтов.
 		"""
 
-		if command.check_flag("e"): accounts = tuple(filter(lambda Account: Account.is_enabled, accounts))
-		if command.check_flag("b"): accounts = tuple(filter(lambda Account: Account.is_banned, accounts))
-		if command.check_flag("m"): accounts = tuple(filter(lambda Account: Account.is_muted, accounts))
-		if command.check_flag("d"): accounts = tuple(filter(lambda Account: not Account.is_enabled, accounts))
+		if command.check_flag("e"): accounts = tuple(filter(lambda CurrentAccount: CurrentAccount.is_enabled, accounts))
+		if command.check_flag("b"): accounts = tuple(filter(lambda CurrentAccount: CurrentAccount.is_banned, accounts))
+		if command.check_flag("m"): accounts = tuple(filter(lambda CurrentAccount: CurrentAccount.is_muted, accounts))
+		if command.check_flag("d"): accounts = tuple(filter(lambda CurrentAccount: not CurrentAccount.is_enabled, accounts))
+		if command.check_flag("w"): accounts = tuple(filter(lambda CurrentAccount: CurrentAccount.is_ready_to_work, accounts))
+		if command.check_flag("a"): accounts = tuple(filter(lambda CurrentAccount: CurrentAccount.check_access(self.__User.id), accounts))
 
 		return accounts
 
@@ -187,10 +228,13 @@ class Interaction:
 		Ranges = range_string.split(",")
 		ResultRange = list()
 
+		UserAccounts = self.__Manager.get_user_accounts(self.__User.id)
+		UserAccountsID = [CurrentAccount.id for CurrentAccount in UserAccounts]
+
 		for Range in Ranges:
 
 			if Range == "*":
-				ResultRange = self.__Manager.accounts_id
+				ResultRange = UserAccountsID
 
 			elif "-" in Range:
 				Start, End = map(int, Range.split("-"))
@@ -198,7 +242,7 @@ class Interaction:
 
 			elif "%" in Range:
 				Count = int(Range.lstrip("%"))
-				RandomAccounts = random.choices(self.__Manager.accounts, k = Count)
+				RandomAccounts = random.choices(UserAccounts, k = Count)
 
 				for CurrentAccount in RandomAccounts:
 					if CurrentAccount.id not in ResultRange: ResultRange.append(CurrentAccount.id)
@@ -209,7 +253,7 @@ class Interaction:
 		SelectedAccounts = list()
 
 		for ID in ResultRange:
-			if ID in self.__Manager.accounts_id: SelectedAccounts.append(self.__Manager.get_account(ID))
+			if ID in UserAccountsID: SelectedAccounts.append(self.__Manager.get_account(ID))
 
 		return tuple(SelectedAccounts)
 
@@ -233,11 +277,31 @@ class Interaction:
 			SelectionStatus = self.__CheckAccountsSelected()
 			Status.merge(SelectionStatus)
 
-			if SelectionStatus.value: 
-				for CurrentAccount in self.__SelectedAccounts: self.__Manager.delete_account(CurrentAccount.id)
-				Status.push_message("Удалено аккаунтов:" + " " + str(len(self.__SelectedAccounts)) + ".")
-				self.__SelectedAccounts = tuple()
-				Status.push_warning("Выбранные аккаунты сброшены.")
+			if SelectionStatus.value:
+				DeletedAccountsCount = 0
+
+				for CurrentAccount in self.__SelectedAccounts:
+					DeletingStatus = self.__Manager.delete_account(CurrentAccount.id)
+					if DeletingStatus: DeletedAccountsCount += 1
+					else: DeletingStatus.print_messages()
+
+				Status.push_message("Удалено аккаунтов:" + f" {DeletedAccountsCount}.")
+				
+				if DeletingStatus: 
+					self.__SelectedAccounts = tuple()
+					Status.push_warning("Выбранные аккаунты сброшены.")
+
+		elif command.name == "deny":
+			SelectionStatus = self.__CheckAccountsSelected()
+			Status.merge(SelectionStatus)
+
+			if SelectionStatus.value:
+				for CurrentAccount in self.__SelectedAccounts:
+					UserID = command.arguments[0]
+					CheckingStatus = self.__CheckUser(UserID)
+					
+					if CheckingStatus: CurrentAccount.deny(UserID)
+					else: CheckingStatus.print_messages()
 
 		elif command.name == "disable":
 			SelectionStatus = self.__CheckAccountsSelected()
@@ -288,6 +352,18 @@ class Interaction:
 			if SelectionStatus.value: 
 				for CurrentAccount in self.__SelectedAccounts: self.__reconnect(command, CurrentAccount)
 
+		elif command.name == "share":
+			SelectionStatus = self.__CheckAccountsSelected()
+			Status.merge(SelectionStatus)
+
+			if SelectionStatus.value:
+				for CurrentAccount in self.__SelectedAccounts:
+					UserID = command.arguments[0]
+					CheckingStatus = self.__CheckUser(UserID)
+					
+					if CheckingStatus: CurrentAccount.share(UserID)
+					else: CheckingStatus.print_messages()
+
 		elif command.name == "send":
 			SelectionStatus = self.__CheckAccountsSelected(single = True)
 			Status.merge(SelectionStatus)
@@ -334,12 +410,14 @@ class Interaction:
 			if not Accounts:
 				RegisterBold = TextStyler("register").decorate.bold
 				Status.push_message(f"В системе нет аккаунтов. Используйте {RegisterBold}, чтобы добавить новый.")
+				Status.print_messages()
 				return
 
-			self.__FilterAccounts(command, Accounts)
+			Accounts = self.__FilterAccounts(command, Accounts)
 
 			if not Accounts:
 				Status.push_message("По вашему запросу не найден ни один аккаунт.")
+				Status.print_messages()
 				return
 			
 			print("==========")
@@ -347,16 +425,18 @@ class Interaction:
 			for Account in Accounts:
 				print(TextStyler("ID:").decorate.bold, Account.id)
 				print(TextStyler("Phone number:").decorate.bold, Account.phone_number)
-				print(TextStyler("Premium:").decorate.bold, str(Account.is_premium).lower())
-				self.status("Mute", Account.is_muted, reverse = True)
-				self.status("Ban", Account.is_banned, reverse = True)
-				self.status("Enabled", Account.is_enabled)
+				IsPremium = TextStyler("true").colorize.bright_yellow if Account.is_premium else "false"
+				print(TextStyler("Premium:").decorate.bold, IsPremium)
 				print(TextStyler("Messages sended:").decorate.bold, Account.sended_messages_count)
+				self.status("Access", Account.check_access(self.__User.id), end = " | ")
+				self.status("Mute", Account.is_muted, reverse = True, end = " | ")
+				self.status("Ban", Account.is_banned, reverse = True, end = " | ")
+				self.status("Enabled", Account.is_enabled)
 				if Account.comment: print(TextStyler("Comment:").decorate.bold, Account.comment)
 				print("==========")
 
 		elif command.name == "register":
-			RegistrationStatus = self.__Manager.register(command.arguments[0], command.arguments[1], command.arguments[2])
+			RegistrationStatus = self.__Manager.register(command.arguments[0], command.arguments[1], command.arguments[2], self.__User.id)
 			if RegistrationStatus.value: Status.push_message(f"Аккаунт добавлен в систему под ID #{RegistrationStatus.value}.")
 			elif RegistrationStatus.messages: Status.merge(RegistrationStatus, overwrite = False)
 			else: Status.push_error("Не удалось зарегистрировать аккаунт.")
@@ -396,6 +476,7 @@ class Interaction:
 		self.__Settings = settings.copy()
 
 		self.__User: UserData = None
+		self.__UsersManager: UsersManager = None
 		self.__Manager: Manager = None
 		self.__SelectedAccounts: tuple[Account] = tuple()
 
@@ -412,14 +493,14 @@ class Interaction:
 			user_key – ID пользователя Telegram для доступа к его данным, полученным через бота.
 		"""
 
-		Users = UsersManager("Data/Users")
+		self.__UsersManager = UsersManager("Data/Users")
 		
 		while not self.__User:
 
 			try:
 				UserID = input("Введите код доступа (ID пользователя Telegram):" + " ") if not user_key else user_key
 				UserID = int(UserID)
-				self.__User = Users.get_user(UserID)
+				self.__User = self.__UsersManager.get_user(UserID)
 				self.__Manager = Manager(self.__User)
 				Username = TextStyler(self.__User.username).decorate.bold
 				print("Добро пожаловать," + f" {Username}!\n")
@@ -458,6 +539,8 @@ class Interaction:
 					elif not Input.startswith("help"): self.error("Неизвестная команда.")
 
 				except NotEnoughParameters: self.error("Недостаточно параметров.")
+				except TooManyParameters: self.error("Слишком много параметров.")
+				except InvalidParameterType: self.error("Неверный тип переданного параметра.")
 
 	#==========================================================================================#
 	# >>>>> ШАБЛОНЫ ВВОДА-ВЫВОДА <<<<< #
@@ -471,17 +554,18 @@ class Interaction:
 
 		print(TextStyler("[ERROR] " + text).colorize.red)
 
-	def status(self, field: str, status: bool, reverse: bool = False):
+	def status(self, field: str, status: bool, reverse: bool = False, end: str | None = "\n"):
 		"""
 		Выводит в консоль статус поля.
 			field – название поля;\n
 			status – логический статус;\n
-			reverse – инвертирует окраску.
+			reverse – инвертирует окраску;\n
+			end – конец строки.
 		"""
 
 		if reverse: status = TextStyler("true").colorize.red if status else TextStyler("false").colorize.green
 		else: status = TextStyler("true").colorize.green if status else TextStyler("false").colorize.red
-		print(TextStyler(field + ":").decorate.bold, status)
+		print(TextStyler(field + ":").decorate.bold, status, end = end)
 
 	def title(self):
 		"""Выводит заголовок CLI."""
