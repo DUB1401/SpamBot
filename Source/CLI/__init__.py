@@ -61,6 +61,12 @@ class Interaction:
 		Com = Command("mail", "Использует выбранные аккаунты для рассылки сообщений.")
 		CommandsList.append(Com)
 
+		Com = Command("react", "Отправляет реакцию на сообщение.")
+		ComPos = Com.create_position("LINK", "Цель для простановки реакции.", important = True)
+		ComPos.add_argument(ParametersTypes.URL, "Ссылка на сообщение.")
+		Com.add_key("reaction", description = "Указывает эмодзи, используемый в реакции.")
+		CommandsList.append(Com)
+
 		Com = Command("reconnect", "Выполняет переподключение аккаунта к системе.")
 		CommandsList.append(Com)
 
@@ -344,6 +350,13 @@ class Interaction:
 				MailerObject = Mailer()
 				MailingStatus = MailerObject.start_mailing(self.__SelectedAccounts, self.__User, delay = self.__Settings["delay"])
 				Status.merge(MailingStatus)
+
+		elif command.name == "react":
+			SelectionStatus = self.__CheckAccountsSelected()
+			Status.merge(SelectionStatus)
+			
+			if SelectionStatus.value: 
+				for CurrentAccount in self.__SelectedAccounts: CurrentAccount.set_reaction(command.arguments[0], command.get_key_value("reaction")).print_messages()
 
 		elif command.name == "reconnect":
 			SelectionStatus = self.__CheckAccountsSelected()

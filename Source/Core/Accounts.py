@@ -1,10 +1,13 @@
 from telethon.errors import AuthKeyUnregisteredError, FloodWaitError, PeerFloodError, PhoneNumberBannedError, SessionRevokedError, UserDeactivatedBanError, UserNotParticipantError, RPCError
 from telethon.tl.functions.channels import JoinChannelRequest, LeaveChannelRequest
+from telethon.tl.functions.messages import SendReactionRequest
+from telethon.tl.types import InputPeerChannel, ReactionEmoji
+from telethon.sync import TelegramClient
+from telebot import types
+
 from dublib.Methods.Filesystem import ReadJSON, WriteJSON
 from dublib.TelebotUtils.Users import UserData
 from dublib.Engine.Bus import ExecutionStatus
-from telethon.sync import TelegramClient
-from telebot import types
 
 import shutil
 import os
@@ -402,6 +405,37 @@ class Account:
 		except Exception as ExceptionData:
 			Status.push_error(f"Неизвестная ошибка при отправке сообщения: {ExceptionData}")
 			Status.set_code(-1)
+
+		return Status
+
+	def set_reaction(self, message_link: str, reaction: str | None = None) -> ExecutionStatus:
+		"""
+		Ставит реакцию на сообщение.
+			message_link – ссылка на сообщение;\n
+			reaction – эмодзи с типом реакции.
+		"""
+
+		Status = ExecutionStatus()
+		Status.value = False
+		if not reaction: reaction = "👍"
+		
+		try:
+			message_link = message_link.split("?")[0].split("/")
+			ChatName = message_link[-2]
+			MessageID = int(message_link[-1])
+
+			self.start_session()
+			ChatEntity = self.__Client.get_entity(ChatName)
+			self.__Client(SendReactionRequest(
+				InputPeerChannel(ChatEntity.id, ChatEntity.access_hash), 
+				MessageID, 
+				reaction = [ReactionEmoji(emoticon = reaction)]
+			))
+			self.close_session()
+
+			Status.value = True
+
+		except ZeroDivisionError as ExceptionData: Status.push_error(str(ExceptionData))
 
 		return Status
 
