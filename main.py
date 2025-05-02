@@ -6,10 +6,12 @@ from dublib.CLI.Terminalyzer import Command, ParametersTypes, Terminalyzer
 from dublib.Methods.Filesystem import MakeRootDirectories, ReadJSON
 from dublib.Methods.System import CheckPythonMinimalVersion, Clear
 from dublib.TelebotUtils.Users import UsersManager
-from telebot import TeleBot, types
+from dublib.CLI.TextStyler import TextStyler
+
+import os
 
 import requests
-import os
+from telebot import TeleBot, types
 
 #==========================================================================================#
 # >>>>> ИНИЦИАЛИЗАЦИЯ <<<<< #
@@ -52,12 +54,17 @@ if not ParsedCommand or ParsedCommand.check_flag("c"):
 
 Clear()
 Bot = TeleBot(Settings["token"])
+BotUsername = Bot.get_me().username
+print(TextStyler(f"Telegram бот инициализирован на https://t.me/{BotUsername}!").colorize.green)
+MainPy, RunCommand = TextStyler("main.py").decorate.bold, TextStyler("run").decorate.bold
+print(f"Чтобы использовать CLI запустите отдельный экземпляр {MainPy} без команды {RunCommand}.")
+print("Ctrl + C для завершения процесса…")
 
 @Bot.message_handler(commands = ["start"])
 def BotProcessCommand(Message: types.Message):
 	User = Users.auth(Message.from_user)
 	User.set_property("message", None, force = False)
-	User.set_property("attachment", None, force = False)
+	User.set_property("attachments", list(), force = False)
 
 	if User.has_permissions("admin"):
 		Bot.send_message(

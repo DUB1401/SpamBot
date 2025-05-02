@@ -1,4 +1,4 @@
 pyTelegramBotAPI
 Telethon
-dublib==0.16.0
+dublib==0.18.2
 pandas
