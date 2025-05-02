@@ -64,7 +64,7 @@ class Interaction:
 		Com = Command("react", "Отправляет реакцию на сообщение.")
 		ComPos = Com.create_position("LINK", "Цель для простановки реакции.", important = True)
 		ComPos.add_argument(ParametersTypes.URL, "Ссылка на сообщение.")
-		Com.add_key("reaction", description = "Указывает эмодзи, используемый в реакции.")
+		Com.add_key("emoji", description = "Указывает эмодзи, используемый в реакции.")
 		CommandsList.append(Com)
 
 		Com = Command("reconnect", "Выполняет переподключение аккаунта к системе.")
@@ -356,7 +356,7 @@ class Interaction:
 			Status.merge(SelectionStatus)
 			
 			if SelectionStatus.value: 
-				for CurrentAccount in self.__SelectedAccounts: CurrentAccount.set_reaction(command.arguments[0], command.get_key_value("reaction")).print_messages()
+				for CurrentAccount in self.__SelectedAccounts: CurrentAccount.set_reaction(command.arguments[0], command.get_key_value("emoji")).print_messages()
 
 		elif command.name == "reconnect":
 			SelectionStatus = self.__CheckAccountsSelected()

@@ -25,7 +25,7 @@ Settings = ReadJSON("Settings.json")
 # >>>>> НАСТРОЙКА ОБРАБОТЧИКА КОМАНД <<<<< #
 #==========================================================================================#
 
-Com = Command("run")
+Com = Command("run", "Запускает скрипт с определёнными параметрами.")
 ComPos = Com.create_position("MODE", "Режим запуска SpamBot.")
 Com.add_flag("s", "Запускает бота-редактора Telegram.")
 Com.add_flag("c", "Запускает CLI.")
@@ -33,6 +33,8 @@ Com.add_key("key", ParametersTypes.Number, "Указывает ключ поль
 
 Analyzer = Terminalyzer()
 Analyzer.enable_help(True)
+Analyzer.help_translation.command_description = "Выводит список поддерживаемых команд. Для деталей, добавьте команду как аргумент."
+Analyzer.help_translation.argument_description = "Название команды, для которой вы хотите получить расширенную справку."
 ParsedCommand = Analyzer.check_commands(Com)
 Users = UsersManager("Data/Users")
 
@@ -40,14 +42,24 @@ Users = UsersManager("Data/Users")
 # >>>>> ЗАПУСК CLI-РЕЖИМА <<<<< #
 #==========================================================================================#
 
-if not ParsedCommand or ParsedCommand.check_flag("c"):
-	UserKey = None
-	if ParsedCommand: UserKey = ParsedCommand.get_key_value("key")
+if ParsedCommand:
+
+	if ParsedCommand.name == "help":
+		exit(0)
+
+	elif not ParsedCommand.check_flag("s"):
+		UserKey = ParsedCommand.get_key_value("key")
+		InteractionObject = Interaction(Settings)
+		InteractionObject.title()
+		InteractionObject.auth(UserKey)
+		InteractionObject.run()
+
+else:
 	InteractionObject = Interaction(Settings)
 	InteractionObject.title()
-	InteractionObject.auth(UserKey)
+	InteractionObject.auth()
 	InteractionObject.run()
-
+	
 #==========================================================================================#
 # >>>>> ЗАПУСК БОТА <<<<< #
 #==========================================================================================#

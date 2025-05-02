@@ -3,12 +3,13 @@ from Source.Core.Accounts import Account
 from dublib.Methods.Filesystem import ListDir, ReadJSON, WriteJSON
 from dublib.TelebotUtils.Users import UserData
 from dublib.Engine.Bus import ExecutionStatus
+
 from typing import Iterable
 from time import sleep
-
-import pandas
 import random
 import os
+
+import pandas
 
 class Target:
 	"""Цель рассылки."""

@@ -1,16 +1,26 @@
-from telethon.errors import AuthKeyUnregisteredError, FloodWaitError, PeerFloodError, PhoneNumberBannedError, SessionRevokedError, UserDeactivatedBanError, UserNotParticipantError, RPCError
-from telethon.tl.functions.channels import JoinChannelRequest, LeaveChannelRequest
-from telethon.tl.functions.messages import SendReactionRequest
-from telethon.tl.types import InputPeerChannel, ReactionEmoji
-from telethon.sync import TelegramClient
-from telebot import types
-
 from dublib.Methods.Filesystem import ReadJSON, WriteJSON
 from dublib.TelebotUtils.Users import UserData
 from dublib.Engine.Bus import ExecutionStatus
 
 import shutil
 import os
+
+from telethon.errors import (
+	AuthKeyUnregisteredError,
+	FloodWaitError,
+	PeerFloodError,
+	PhoneNumberBannedError,
+	SessionRevokedError,
+	UserDeactivatedBanError,
+	UserNotParticipantError,
+	RPCError,
+	rpcerrorlist
+)
+from telethon.tl.functions.channels import JoinChannelRequest, LeaveChannelRequest
+from telethon.tl.functions.messages import SendReactionRequest
+from telethon.tl.types import InputPeerChannel, ReactionEmoji
+from telethon.sync import TelegramClient
+from telebot import types
 
 class Account:
 	"""Аккаунт Telegram."""
@@ -301,6 +311,7 @@ class Account:
 		try:
 			self.__Client.send_message("@SpamBot", "/start")
 			Message: types.Message
+			self.start_session()
 
 			for Message in self.__Client.iter_messages("@SpamBot", from_user = "@SpamBot"):
 				if Message.text.startswith("Ваш аккаунт свободен") or Message.text.startswith("Good news, no limits"): Status.set_value(False)
@@ -310,6 +321,8 @@ class Account:
 				self.save()
 
 		except: Status.push_error(f"Не удалось проверить наличие мута на аккаунте #{self.__ID}.")
+
+		self.close_session()
 
 		return Status
 
@@ -324,11 +337,12 @@ class Account:
 		try:
 			self.start_session()
 			self.__Client(JoinChannelRequest(chat))
-			self.close_session()
 			Status.value = True
 			Status.push_message(f"Аккаунт #{self.__ID} отправил запрос на вступление в чат.")
 
 		except: Status.push_error("Не удалось отправить запрос на вступление в чат.")
+
+		self.close_session()
 
 		return Status
 
@@ -344,12 +358,13 @@ class Account:
 		try:
 			self.start_session()
 			self.__Client(LeaveChannelRequest(chat))
-			self.close_session()
 			Status.value = True
 			Status.push_message(f"Аккаунт #{self.__ID} отправил запрос на выход из чата.")
 
 		except UserNotParticipantError: Status.push_message(f"Аккаунт #{self.__ID} не состоит в чате.")
 		except: Status.push_error("Не удалось отправить запрос на выход из чата.")
+
+		self.close_session()
 
 		return Status
 
@@ -372,7 +387,6 @@ class Account:
 				file = self.__ReadAttachments(user),
 				parse_mode = "HTML"
 			)
-			self.close_session()
 
 			self.__Data["sended"] += 1
 			self.save()
@@ -406,18 +420,20 @@ class Account:
 			Status.push_error(f"Неизвестная ошибка при отправке сообщения: {ExceptionData}")
 			Status.set_code(-1)
 
+		self.close_session()
+
 		return Status
 
-	def set_reaction(self, message_link: str, reaction: str | None = None) -> ExecutionStatus:
+	def set_reaction(self, message_link: str, emoji: str | None = None) -> ExecutionStatus:
 		"""
 		Ставит реакцию на сообщение.
 			message_link – ссылка на сообщение;\n
-			reaction – эмодзи с типом реакции.
+			emoji – эмодзи, использующийся для реагирования.
 		"""
 
 		Status = ExecutionStatus()
 		Status.value = False
-		if not reaction: reaction = "👍"
+		if not emoji: emoji = "👍"
 		
 		try:
 			message_link = message_link.split("?")[0].split("/")
@@ -429,13 +445,14 @@ class Account:
 			self.__Client(SendReactionRequest(
 				InputPeerChannel(ChatEntity.id, ChatEntity.access_hash), 
 				MessageID, 
-				reaction = [ReactionEmoji(emoticon = reaction)]
+				reaction = [ReactionEmoji(emoticon = emoji)]
 			))
-			self.close_session()
-
 			Status.value = True
 
-		except ZeroDivisionError as ExceptionData: Status.push_error(str(ExceptionData))
+		except rpcerrorlist.ReactionInvalidError: Status.push_error("Данная реакция не поддерживается.")
+		except Exception as ExceptionData: Status.push_error(str(ExceptionData))
+
+		self.close_session()
 
 		return Status
 
